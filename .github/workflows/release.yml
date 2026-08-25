@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: windows-2022
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = "${{ github.ref_name }}"
+          if ($tag -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+            throw "Release tag must be a semantic version beginning with v: $tag"
+          }
+          "version=$($tag.Substring(1))" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        run: msbuild kakao_watcher.sln /m /p:Configuration=Release /p:Platform=x64 /p:TreatWarningAsError=true
+
+      - name: Verify executable metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "x64/Release/kakao_watcher.exe"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $dumpbin = Get-ChildItem -Path "$vsRoot\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $headers = & $dumpbin /headers $exe | Out-String
+          if ($headers -notmatch "subsystem \(Windows GUI\)") {
+            throw "Executable is not using the Windows GUI subsystem"
+          }
+          $manifest = Join-Path $env:RUNNER_TEMP "kakao_watcher.manifest.xml"
+          $mt = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\mt.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          & $mt -nologo "-inputresource:$exe;#1" "-out:$manifest"
+          if ((Get-Content -Raw -LiteralPath $manifest) -notmatch 'requestedExecutionLevel level="asInvoker"') {
+            throw "Embedded asInvoker manifest was not found"
+          }
+
+      - name: Package
+        id: package
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $name = "kakao_watcher-$env:VERSION-windows-x64"
+          $root = Join-Path "dist" $name
+          New-Item -ItemType Directory -Force -Path $root | Out-Null
+          Copy-Item -LiteralPath "x64/Release/kakao_watcher.exe", "README.ko.md", "README.en.md", "DISCLAIMER.md" -Destination $root
+          $archive = Join-Path "dist" "$name.zip"
+          Compress-Archive -Path $root -DestinationPath $archive
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          Set-Content -NoNewline -Encoding ascii -LiteralPath "$archive.sha256" -Value "$hash  $name.zip"
+          "archive=$archive" >> $env:GITHUB_OUTPUT
+          "checksum=$archive.sha256" >> $env:GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kakao_watcher-${{ steps.version.outputs.version }}-windows-x64
+          path: |
+            ${{ steps.package.outputs.archive }}
+            ${{ steps.package.outputs.checksum }}
+          if-no-files-found: error
+
+  github-release:
+    name: Publish GitHub release
+    needs: validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ needs.validate.outputs.tag }}" dist/* --repo "${{ github.repository }}" --title "kakao_watcher ${{ needs.validate.outputs.version }}" --generate-notes

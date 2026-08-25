@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.configuration }} x64
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration:
+          - Debug
+          - Release
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        run: msbuild kakao_watcher.sln /m /p:Configuration=${{ matrix.configuration }} /p:Platform=x64 /p:TreatWarningAsError=true
+
+      - name: Verify executable metadata
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $exe = "x64/${{ matrix.configuration }}/kakao_watcher.exe"
+          if (-not (Test-Path -LiteralPath $exe)) {
+            throw "Build output not found: $exe"
+          }
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $dumpbin = Get-ChildItem -Path "$vsRoot\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $headers = & $dumpbin /headers $exe | Out-String
+          if ($headers -notmatch "subsystem \(Windows GUI\)") {
+            throw "Executable is not using the Windows GUI subsystem"
+          }
+          $mt = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\mt.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          $manifest = Join-Path $env:RUNNER_TEMP "kakao_watcher.manifest.xml"
+          & $mt -nologo "-inputresource:$exe;#1" "-out:$manifest"
+          $manifestText = Get-Content -Raw -LiteralPath $manifest
+          if ($manifestText -notmatch 'requestedExecutionLevel level="asInvoker"') {
+            throw "Embedded asInvoker manifest was not found"
+          }
+
+      - name: Verify README symlink
+        shell: pwsh
+        run: |
+          $entry = git ls-files -s README.md
+          if ($entry -notmatch '^120000 ') {
+            throw "README.md must be stored as a Git symbolic link"
+          }
+          if ((git cat-file -p (($entry -split '\s+')[1])) -ne 'README.ko.md') {
+            throw "README.md must point to README.ko.md"
+          }
+
+      - name: Upload executable
+        if: matrix.configuration == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: kakao_watcher-windows-x64
+          path: x64/Release/kakao_watcher.exe
+          if-no-files-found: error
