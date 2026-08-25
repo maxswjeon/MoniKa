@@ -314,7 +314,7 @@ void App::rescan_running() {
         LOGI("KakaoTalk not running; nothing to scan");
 }
 
-void App::on_file_event(const wstring& fullPath, bool /*added*/) {
+void App::on_file_event(const wstring& fullPath, bool added) {
     if (fullPath.empty()) {
         LOGW("directory notifications overflowed; reconciling all .edb files");
         oracle_.load_edb_dir(userDir_);
@@ -335,6 +335,8 @@ void App::on_file_event(const wstring& fullPath, bool /*added*/) {
 
     wstring edbFull = is_wal ? fullPath.substr(0, fullPath.size() - 4) : fullPath; // strip -wal
     string rel = wide_to_utf8(edbFull.substr(userDir_.size() + 1));
+
+    LOGI("database file %s: %s%s", added ? "added" : "changed", rel.c_str(), is_wal ? "-wal" : "");
 
     cache_.touch_tag(rel, "changed");
 

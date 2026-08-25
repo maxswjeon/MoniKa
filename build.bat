@@ -24,9 +24,11 @@ cl /nologo /std:c++17 /EHsc /O2 /W3 /MD /DUNICODE /D_UNICODE ^
    src\main.cpp src\app.cpp src\oracle.cpp src\scanner.cpp ^
    src\dek_cache.cpp src\etw.cpp src\watcher.cpp src\tray.cpp ^
    /Fe:x64\Release\kakao_watcher.exe /Fo:x64\Release\ ^
-   /link advapi32.lib tdh.lib bcrypt.lib shell32.lib user32.lib ole32.lib
+   /link /SUBSYSTEM:WINDOWS /MANIFEST:EMBED ^
+   /MANIFESTUAC:"level='asInvoker' uiAccess='false'" ^
+   advapi32.lib tdh.lib bcrypt.lib shell32.lib user32.lib ole32.lib
 
 if errorlevel 1 ( echo [!] build failed & exit /b 1 )
 echo [+] Built x64\Release\kakao_watcher.exe
-echo     Run it elevated (ETW needs admin):  x64\Release\kakao_watcher.exe
+echo     Double-click to run in the tray. Windows will request administrator access.
 endlocal

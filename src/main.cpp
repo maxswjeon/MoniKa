@@ -4,6 +4,8 @@
 #include "etw.hpp"
 #include "watcher.hpp"
 #include "tray.hpp"
+#include <shellapi.h>
+#include <tlhelp32.h>
 
 using namespace kw;
 
@@ -12,23 +14,118 @@ static EtwProcessMonitor g_etw;
 static DirWatcher g_watch;
 static Tray g_tray;
 
+static bool is_process_elevated(HANDLE process) {
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(process, TOKEN_QUERY, &token))
+        return false;
+    TOKEN_ELEVATION elevation{};
+    DWORD size = 0;
+    bool elevated = GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &size) &&
+                    elevation.TokenIsElevated != 0;
+    CloseHandle(token);
+    return elevated;
+}
+
+static wstring executable_path() {
+    vector<wchar_t> path(32768);
+    DWORD len = GetModuleFileNameW(nullptr, path.data(), (DWORD)path.size());
+    return (len && len < path.size()) ? wstring(path.data(), len) : L"";
+}
+
+// Returns true only when an elevated replacement was successfully launched.
+// ERROR_CANCELLED deliberately falls through so the current process can continue
+// with reduced functionality instead of disappearing.
+static bool try_relaunch_elevated() {
+    wstring path = executable_path();
+    if (path.empty())
+        return false;
+    SHELLEXECUTEINFOW sei{};
+    sei.cbSize = sizeof(sei);
+    sei.fMask = SEE_MASK_NOCLOSEPROCESS;
+    sei.lpVerb = L"runas";
+    sei.lpFile = path.c_str();
+    sei.lpParameters = L"--elevated";
+    sei.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteExW(&sei)) {
+        DWORD error = GetLastError();
+        if (error == ERROR_CANCELLED)
+            LOGW("administrator elevation cancelled; continuing non-elevated");
+        else
+            LOGW("administrator elevation failed (%lu); continuing non-elevated", error);
+        return false;
+    }
+    if (sei.hProcess)
+        CloseHandle(sei.hProcess);
+    return true;
+}
+
+static void stop_non_elevated_copies() {
+    const DWORD selfPid = GetCurrentProcessId();
+    const wstring selfPath = executable_path();
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE)
+        return;
+    PROCESSENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+    if (Process32FirstW(snapshot, &entry)) {
+        do {
+            if (entry.th32ProcessID == selfPid || _wcsicmp(entry.szExeFile, L"kakao_watcher.exe") != 0)
+                continue;
+            HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE, FALSE,
+                                         entry.th32ProcessID);
+            if (!process)
+                continue;
+            vector<wchar_t> path(32768);
+            DWORD pathLen = (DWORD)path.size();
+            bool sameBinary = QueryFullProcessImageNameW(process, 0, path.data(), &pathLen) &&
+                              _wcsicmp(wstring(path.data(), pathLen).c_str(), selfPath.c_str()) == 0;
+            if (sameBinary && !is_process_elevated(process)) {
+                LOGI("stopping non-elevated previous instance pid=%lu", entry.th32ProcessID);
+                if (TerminateProcess(process, 0))
+                    WaitForSingleObject(process, 5000);
+            }
+            CloseHandle(process);
+        } while (Process32NextW(snapshot, &entry));
+    }
+    CloseHandle(snapshot);
+}
+
 // Scan KakaoTalk a few seconds after start so its DBs (and DEKs) are loaded.
 static void delayed_scan(DWORD pid, int delayMs) {
     g_app.request_scan(pid, delayMs);
 }
 
-int main() {
-    // Paths are logged as UTF-8; make Korean and other non-ASCII names readable
-    // when attached to a Windows console. Redirected output remains UTF-8 bytes.
-    SetConsoleOutputCP(CP_UTF8);
-    LOGI("kakao_watcher starting (self-use: your own account/PC)");
+int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
+    const bool elevated = is_process_elevated(GetCurrentProcess());
+    if (!elevated && try_relaunch_elevated())
+        return 0;
+    if (elevated)
+        stop_non_elevated_copies();
+
+    HANDLE instanceMutex = CreateMutexW(nullptr, TRUE, L"Local\\kakao_watcher_single_instance");
+    if (!instanceMutex || GetLastError() == ERROR_ALREADY_EXISTS) {
+        if (instanceMutex)
+            CloseHandle(instanceMutex);
+        MessageBoxW(nullptr, L"kakao_watcher is already running in the notification area.", L"kakao_watcher",
+                    MB_OK | MB_ICONINFORMATION);
+        return 0;
+    }
+    LOGI("kakao_watcher starting (%s; self-use: your own account/PC)", elevated ? "administrator" : "non-elevated");
     if (!g_app.init()) {
         LOGE("init failed");
+        MessageBoxW(nullptr,
+                    L"kakao_watcher could not initialize.\n\nSee %LOCALAPPDATA%\\kakao_watcher\\watcher.log for details.",
+                    L"kakao_watcher", MB_OK | MB_ICONERROR);
+        CloseHandle(instanceMutex);
         return 1;
     }
 
     HINSTANCE hInst = GetModuleHandleW(nullptr);
     if (!g_tray.create(hInst)) {
+        MessageBoxW(nullptr,
+                    L"kakao_watcher could not create its tray icon.\n\nSee %LOCALAPPDATA%\\kakao_watcher\\watcher.log for details.",
+                    L"kakao_watcher", MB_OK | MB_ICONERROR);
+        CloseHandle(instanceMutex);
         return 1;
     }
     g_app.onArmedChanged = [](int n) { g_tray.set_count(n); };
@@ -79,5 +176,6 @@ int main() {
     g_etw.stop();
     g_app.shutdown();
     g_tray.destroy();
+    CloseHandle(instanceMutex);
     return 0;
 }

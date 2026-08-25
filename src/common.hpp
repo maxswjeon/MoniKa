@@ -9,6 +9,7 @@
 #include <cstdarg>
 #include <mutex>
 #include <cstdio>
+#include <cstring>
 #include <cwctype>
 
 namespace kw {
@@ -20,6 +21,23 @@ inline std::mutex& log_mutex() {
     static std::mutex m;
     return m;
 }
+inline wstring log_path() {
+    static wstring path = []() -> wstring {
+        DWORD n = GetEnvironmentVariableW(L"LOCALAPPDATA", nullptr, 0);
+        if (!n)
+            return L"";
+        wstring base(n, L'\0');
+        DWORD got = GetEnvironmentVariableW(L"LOCALAPPDATA", base.data(), n);
+        if (!got || got >= n)
+            return L"";
+        base.resize(got);
+        wstring dir = base + L"\\kakao_watcher";
+        if (!CreateDirectoryW(dir.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS)
+            return L"";
+        return dir + L"\\watcher.log";
+    }();
+    return path;
+}
 inline void logf(const char* level, const char* fmt, ...) {
     char buf[1200];
     va_list ap;
@@ -29,7 +47,22 @@ inline void logf(const char* level, const char* fmt, ...) {
     std::lock_guard<std::mutex> lk(log_mutex());
     SYSTEMTIME st;
     GetLocalTime(&st);
-    fprintf(stderr, "[%02d:%02d:%02d.%03d %-5s] %s\n", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, level, buf);
+    char line[1320];
+    snprintf(line, sizeof(line), "[%04d-%02d-%02d %02d:%02d:%02d.%03d %-5s] %s\r\n", st.wYear, st.wMonth,
+             st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, level, buf);
+    const wstring& path = log_path();
+    if (!path.empty()) {
+        HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA,
+                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_ALWAYS,
+                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+        if (file != INVALID_HANDLE_VALUE) {
+            DWORD written = 0;
+            WriteFile(file, line, (DWORD)strlen(line), &written, nullptr);
+            CloseHandle(file);
+        }
+    }
+    // Keep stderr useful when a developer explicitly attaches or redirects it.
+    fputs(line, stderr);
     fflush(stderr);
     OutputDebugStringA(buf);
     OutputDebugStringA("\n");

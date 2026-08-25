@@ -52,6 +52,13 @@ bool Tray::create(HINSTANCE hInst) {
         hwnd_ = nullptr;
         return false;
     }
+    nid_.uVersion = NOTIFYICON_VERSION_4;
+    Shell_NotifyIconW(NIM_SETVERSION, &nid_);
+    nid_.uFlags = NIF_INFO;
+    wcscpy_s(nid_.szInfoTitle, L"kakao_watcher is running");
+    wcscpy_s(nid_.szInfo, L"Monitoring KakaoTalk database changes. Right-click the tray icon for options.");
+    nid_.dwInfoFlags = NIIF_INFO;
+    Shell_NotifyIconW(NIM_MODIFY, &nid_);
     return true;
 }
 

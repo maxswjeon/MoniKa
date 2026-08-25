@@ -31,17 +31,24 @@ Output: `x64\Release\kakao_watcher.exe`. No third-party dependencies — SQLite 
 
 ## Run
 
-Run **as Administrator** (the ETW kernel provider requires it):
+Double-click the executable. It requests administrator access (required for the
+full ETW/process-scanning feature set), then runs as a tray application without a
+console window. If the UAC prompt is cancelled or elevation fails, it continues
+non-elevated with reduced functionality. An elevated launch replaces an existing
+non-elevated copy from the same executable path.
 
 ```shell
 x64\Release\kakao_watcher.exe
 ```
 
-Logs go to stderr (console build). The cache DB and the tray tooltip show progress.
+Logs are appended to `%LOCALAPPDATA%\kakao_watcher\watcher.log`. The cache DB and
+the tray tooltip show progress.
 
-## How it fits an alerter
+## Message alerts (not implemented yet)
 
-`kakao_watcher` is the *key-management* layer. To surface messages:
+`kakao_watcher` is currently only the *key-management* layer. A file-change event
+does not mean that a new message has been decoded, and no toast/sound notification
+is currently generated. To surface messages:
 
 - On a `chatLogs_<id>.edb` / `-wal` change for a room whose DEK is cached, decrypt the changed pages (AES-256-CBC, page 4096, `reserved=80`, IV in the page's reserved tail) and diff the chatLogHistory` table for new rows.
 - WAL frames carry the newest, not-yet-checkpointed messages (same DEK).
