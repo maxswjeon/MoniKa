@@ -7,21 +7,22 @@
 namespace kw {
 
 class DekCache {
-public:
+  public:
     ~DekCache();
-    bool init(const wstring& dbPath);   // opens/creates cache.db, creates schema
+    bool init(const wstring& dbPath); // opens/creates cache.db, creates schema
 
     // Store a verified DEK (idempotent by rel path). Returns true if newly armed.
     bool put_dek(const DekHit& hit);
     bool has_dek(const string& rel);
-    int  count_armed();
+    int count_armed();
 
     // File-change tags for the chat_data watcher.
     void touch_tag(const string& rel, const char* state);
 
-private:
+  private:
     bool exec(const char* sql);
-    void* db_ = nullptr;                 // sqlite3*
+    bool has_dek_locked(const string& rel);
+    void* db_ = nullptr; // sqlite3*
     std::mutex mu_;
 };
 

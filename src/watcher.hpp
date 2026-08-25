@@ -8,12 +8,13 @@
 namespace kw {
 
 class DirWatcher {
-public:
+  public:
     using EventFn = std::function<void(const wstring& fullPath, bool added)>;
     bool start(const wstring& dir, EventFn onEvent);
     void stop();
     ~DirWatcher();
-private:
+
+  private:
     void run_();
     wstring dir_;
     EventFn cb_;

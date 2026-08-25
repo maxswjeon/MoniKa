@@ -9,20 +9,20 @@
 namespace kw {
 
 class EtwProcessMonitor {
-public:
+  public:
     using StartFn = std::function<void(DWORD pid, const wstring& image)>;
-    bool start(StartFn onStart);   // needs admin (kernel provider)
+    bool start(StartFn onStart); // needs admin (kernel provider)
     void stop();
     ~EtwProcessMonitor();
 
     // internal (called from ETW callback)
     void handle_record(void* eventRecord);
 
-private:
+  private:
     StartFn cb_;
     std::thread th_;
-    unsigned long long traceHandle_ = 0;   // TRACEHANDLE
-    unsigned long long session_ = 0;       // TRACEHANDLE for control
+    unsigned long long traceHandle_ = 0; // TRACEHANDLE
+    unsigned long long session_ = 0;     // TRACEHANDLE for control
     std::atomic<bool> running_{false};
     wstring sessionName_ = L"KakaoWatcherKP";
     vector<uint8_t> propsBuf_;

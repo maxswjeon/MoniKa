@@ -1,0 +1,20 @@
+# clang-format config for kakao_watcher (LLVM base, 4-space, 100 cols).
+# Run:  clang-format -i src/*.cpp src/*.hpp
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Left
+ReferenceAlignment: Left
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+SpaceBeforeParens: ControlStatements
+AlignAfterOpenBracket: Align
+# Windows headers are order-sensitive (windows.h must precede others) -> don't sort.
+SortIncludes: false
+IncludeBlocks: Preserve
