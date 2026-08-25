@@ -69,7 +69,7 @@ jobs:
           $name = "kakao_watcher-$env:VERSION-windows-x64"
           $root = Join-Path "dist" $name
           New-Item -ItemType Directory -Force -Path $root | Out-Null
-          Copy-Item -LiteralPath "x64/Release/kakao_watcher.exe", "README.ko.md", "README.en.md", "DISCLAIMER.md" -Destination $root
+          Copy-Item -LiteralPath "x64/Release/kakao_watcher.exe", "README.ko.md", "README.en.md", "DISCLAIMER.md", "LICENSE" -Destination $root
           $archive = Join-Path "dist" "$name.zip"
           Compress-Archive -Path $root -DestinationPath $archive
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()

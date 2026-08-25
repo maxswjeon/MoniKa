@@ -104,3 +104,6 @@ src/main.cpp                      startup, elevation, single-instance guard, and
 
 The software and documentation are provided **AS IS**, without warranty of any kind. You are responsible for authorization to access the account, device, and data; compliance with applicable law and KakaoTalk terms; data protection; account restrictions; and all other consequences of use. See [DISCLAIMER.md](DISCLAIMER.md) for details.
 
+## License
+
+This project is distributed under the [MIT License](LICENSE). The warranty disclaimer and limitation of liability in the MIT License are supplemented by the [Disclaimer and Limitation of Liability](DISCLAIMER.md).
