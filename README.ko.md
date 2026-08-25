@@ -58,6 +58,21 @@ msbuild kakao_watcher.sln /p:Configuration=Release /p:Platform=x64
 
 트레이 아이콘이 보이지 않으면 Windows 알림 영역의 숨겨진 아이콘 메뉴를 확인하십시오. 문제를 진단할 때는 `%LOCALAPPDATA%\kakao_watcher\watcher.log`를 확인하십시오.
 
+## 기존 PRAGMA 방식이 아닌 이유
+
+과거 Windows용 KakaoTalk DB 분석 자료에서는 레지스트리의 기기 식별 정보로 `pragma` 값을 만들고, 여기에 사용자 ID를 조합해 공통 AES-128 key/IV를 유도한 다음 `.edb`를 4,096바이트 단위 AES-CBC로 복호화하는 방식을 설명했습니다. 여기서 말하는 “PRAGMA 방식”은 SQLite의 일반적인 `PRAGMA` 문법 전체가 아니라 이 구버전 기기·사용자 기반 키 유도 방식을 뜻합니다.
+
+이 방식은 과거 특정 KakaoTalk 버전과 DB 형식을 대상으로 한 것입니다. 현재 이 프로젝트에서 시험한 KakaoTalk 빌드가 생성한 `chatLogs_*.edb`에는 해당 공식으로 만든 key/IV가 맞지 않았고 SQLite header를 복구하지 못했습니다. 공개된 구버전 스크립트를 그대로 실행하거나 프로세스에서 88자 Base64 형태의 pragma 후보를 찾는 것만으로는 현재 DB를 복호화할 수 없습니다. Kakao가 변경된 내부 형식을 공식 문서화하지 않았으므로 정확한 전환 버전이나 모든 배포판에 대한 보편적인 실패를 주장하지는 않습니다.
+
+`kakao_watcher`는 과거 공식을 다시 계산하는 대신, 현재 실행 중인 KakaoTalk이 열린 DB 연결에 실제로 사용하는 32바이트 per-database DEK 후보를 프로세스 메모리에서 포착합니다. 각 후보는 실제 `.edb` page 1을 SQLCipher 형식에 맞게 복호화해 검증하며, 성공한 키만 저장합니다. 따라서 이 프로젝트의 `DEK`와 과거 문헌의 기기 기반 `pragma`는 같은 값이 아닙니다.
+
+관련 자료:
+
+- [Digital forensic analysis of encrypted database files in instant messaging applications on Windows operating systems (2019)](https://doi.org/10.1016/j.diin.2019.01.011) — 구버전 Windows KakaoTalk의 PRAGMA 기반 키 생성과 AES-128-CBC DB 암호화 분석
+- [윈도우 카카오톡 데이터베이스 복호화 분석 및 구현 #1 (2024)](https://blog.system32.kr/304) — 기기 정보, pragma, 사용자 ID로 key/IV를 유도하는 구현 설명
+- [kdevil2k/Kakaotalk_decDB](https://github.com/kdevil2k/Kakaotalk_decDB) — 88자 Base64 pragma 탐색과 구버전 방식 복호화 예제
+- [맥에서는 됐는데 윈도우에서는 막혔다 — 카카오톡 요약 자동화의 시작, 카톡대화방 복호화1 (2026)](https://devconq.tistory.com/143) — 현재 설치본에서 구버전 고정 키와 pragma 조합이 실패하고 raw SQLCipher key 회수로 전환한 사례
+
 ## 동작 구조
 
 1. ETW가 KakaoTalk 시작을 감지하거나 Toolhelp가 실행 중인 프로세스를 찾습니다.

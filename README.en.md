@@ -58,6 +58,21 @@ At startup, it requests administrator elevation. When elevation succeeds, the el
 
 If the icon is not visible, check the hidden-icons area of the Windows notification tray. For diagnostics, inspect `%LOCALAPPDATA%\kakao_watcher\watcher.log`.
 
+## Why this does not use the legacy PRAGMA method
+
+Earlier research on KakaoTalk for Windows described a scheme that generated a `pragma` value from device identifiers in the registry, combined it with the user ID to derive a shared AES-128 key and IV, and decrypted each `.edb` in 4,096-byte AES-CBC blocks. In this documentation, “the PRAGMA method” means that legacy device/user-derived key scheme, not SQLite's `PRAGMA` syntax in general.
+
+That method targeted particular older KakaoTalk versions and database formats. Against the KakaoTalk builds tested by this project, keys and IVs produced by that formula did not recover the SQLite header of current `chatLogs_*.edb` files. Running the published legacy scripts unchanged, or merely searching a process dump for 88-character Base64 pragma candidates, is therefore insufficient for these databases. Kakao has not publicly documented the internal format transition, so this project does not claim an exact cutoff version or universal failure across every distribution.
+
+Instead of recalculating the historical formula, `kakao_watcher` captures candidate 32-byte per-database DEKs that the running KakaoTalk process actually uses for open database connections. It validates each candidate by decrypting a real `.edb` page 1 according to the observed SQLCipher layout and stores only successful keys. The `DEK` used by this project is therefore not the same value as the device-derived `pragma` described by older publications.
+
+References:
+
+- [Digital forensic analysis of encrypted database files in instant messaging applications on Windows operating systems (2019)](https://doi.org/10.1016/j.diin.2019.01.011) — analysis of the PRAGMA-derived key and AES-128-CBC database encryption in an older Windows KakaoTalk release
+- [Windows KakaoTalk database decryption analysis and implementation #1 (2024, Korean)](https://blog.system32.kr/304) — implementation deriving a key and IV from device information, a pragma value, and a user ID
+- [kdevil2k/Kakaotalk_decDB](https://github.com/kdevil2k/Kakaotalk_decDB) — examples that search for an 88-character Base64 pragma and apply the legacy decryption scheme
+- [KakaoTalk chat database decryption attempt on current Windows builds (2026, Korean)](https://devconq.tistory.com/143) — a report that legacy fixed-key and pragma combinations failed on a current installation, leading to direct recovery of the raw SQLCipher key
+
 ## How it works
 
 1. ETW detects KakaoTalk startup, or Toolhelp finds an existing process.
