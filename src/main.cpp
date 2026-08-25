@@ -18,6 +18,9 @@ static void delayed_scan(DWORD pid, int delayMs) {
 }
 
 int main() {
+    // Paths are logged as UTF-8; make Korean and other non-ASCII names readable
+    // when attached to a Windows console. Redirected output remains UTF-8 bytes.
+    SetConsoleOutputCP(CP_UTF8);
     LOGI("kakao_watcher starting (self-use: your own account/PC)");
     if (!g_app.init()) {
         LOGE("init failed");
@@ -32,22 +35,27 @@ int main() {
     g_tray.set_count(g_app.armed());
 
     g_tray.onRescan = [] { g_app.rescan_running(); };
-    g_tray.onExit = [] { PostQuitMessage(0); };
+    g_tray.onExit = [] { g_tray.destroy(); };
 
-    // 1) ETW trigger: catch KakaoTalk starting AFTER us.
+    // 1) ETW trigger: catch KakaoTalk starting AFTER us. We started before it, so
+    // run the storm-capture burst to snapshot DEKs during its startup open-storm.
     bool etwOk = g_etw.start([](DWORD pid, const wstring& image) {
         if (iends_with(image, KAKAO_IMAGE)) {
             LOGI("ETW: KakaoTalk started pid=%lu (%s)", pid, wide_to_utf8(image).c_str());
-            delayed_scan(pid, 5000);  // let it open its DBs first
-            delayed_scan(pid, 15000); // second pass for late-opened rooms
+            g_app.start_storm(pid);
         }
     });
     if (!etwOk)
         LOGW("ETW start failed (need admin) - relying on watcher/manual rescan");
 
     // 3) chat_data watcher (tags + new-room DEK capture)
-    g_watch.start(g_app.chat_data(),
-                  [](const wstring& full, bool added) { g_app.on_file_event(full, added); });
+    if (!g_watch.start(g_app.chat_data(), [](const wstring& full, bool added) { g_app.on_file_event(full, added); })) {
+        LOGE("chat_data watcher failed to start");
+        g_etw.stop();
+        g_app.shutdown();
+        g_tray.destroy();
+        return 1;
+    }
 
     // Catch an already-running instance (watcher started before or after KakaoTalk).
     DWORD running = App::find_kakaotalk_pid();
@@ -57,11 +65,14 @@ int main() {
     }
 
     LOGI("running. tray active. right-click for Rescan/Exit.");
-    MSG msg;
-    while (GetMessageW(&msg, nullptr, 0, 0)) {
+    MSG msg{};
+    int getMessageResult = 0;
+    while ((getMessageResult = GetMessageW(&msg, nullptr, 0, 0)) > 0) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
+    if (getMessageResult < 0)
+        LOGE("GetMessageW failed: %lu", GetLastError());
 
     LOGI("shutting down");
     g_watch.stop();

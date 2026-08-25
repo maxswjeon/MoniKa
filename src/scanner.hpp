@@ -14,6 +14,12 @@ class Scanner {
     // onHit(hit, virtualAddress). Return value ignored.
     using HitFn = std::function<void(const DekHit&, uintptr_t)>;
     static int scan_process(DWORD pid, Oracle& oracle, const HitFn& onHit);
+
+    // Storm mode: fast anchor-only pass, NO AES/validation. Calls onCand for every
+    // 0x88-anchored, low-zero 32-byte window. Cheap enough to run repeatedly during
+    // KakaoTalk's startup open-storm; validate the accumulated candidates later.
+    using CandFn = std::function<void(const uint8_t* key32)>;
+    static size_t collect_candidates(DWORD pid, const CandFn& onCand);
 };
 
 } // namespace kw

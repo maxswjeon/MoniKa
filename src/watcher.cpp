@@ -10,9 +10,8 @@ bool DirWatcher::start(const wstring& dir, EventFn onEvent) {
         LOGE("watch dir missing: %s", wide_to_utf8(dir_).c_str());
         return false;
     }
-    hDir_ = CreateFileW(dir_.c_str(), FILE_LIST_DIRECTORY,
-                        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                        OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
+    hDir_ = CreateFileW(dir_.c_str(), FILE_LIST_DIRECTORY, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                        nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, nullptr);
     if (hDir_ == INVALID_HANDLE_VALUE) {
         LOGE("open watch dir failed %lu", GetLastError());
         return false;
@@ -39,13 +38,12 @@ void DirWatcher::run_() {
         LOGE("create watch event failed %lu", GetLastError());
         return;
     }
-    const DWORD filter = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE |
-                         FILE_NOTIFY_CHANGE_SIZE | FILE_NOTIFY_CHANGE_CREATION;
+    const DWORD filter = FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_SIZE |
+                         FILE_NOTIFY_CHANGE_CREATION;
     while (running_) {
         ResetEvent(ov.hEvent);
         DWORD ret = 0;
-        if (!ReadDirectoryChangesW(hDir_, buf.data(), (DWORD)buf.size(), TRUE, filter, &ret, &ov,
-                                   nullptr)) {
+        if (!ReadDirectoryChangesW(hDir_, buf.data(), (DWORD)buf.size(), TRUE, filter, &ret, &ov, nullptr)) {
             LOGE("ReadDirectoryChangesW failed %lu", GetLastError());
             break;
         }
@@ -62,20 +60,46 @@ void DirWatcher::run_() {
             break;
         }
         DWORD bytes = 0;
-        if (!GetOverlappedResult(hDir_, &ov, &bytes, FALSE) || bytes == 0)
+        if (!GetOverlappedResult(hDir_, &ov, &bytes, FALSE)) {
+            if (GetLastError() == ERROR_NOTIFY_ENUM_DIR && cb_)
+                cb_(L"", false);
             continue;
+        }
+        if (bytes == 0) {
+            if (cb_)
+                cb_(L"", false);
+            continue;
+        }
 
         size_t off = 0;
         for (;;) {
+            if (off > bytes || bytes - off < offsetof(FILE_NOTIFY_INFORMATION, FileName)) {
+                LOGW("truncated directory notification; reconciling");
+                if (cb_)
+                    cb_(L"", false);
+                break;
+            }
             auto* fni = (FILE_NOTIFY_INFORMATION*)(buf.data() + off);
+            size_t entrySize = offsetof(FILE_NOTIFY_INFORMATION, FileName) + fni->FileNameLength;
+            if ((fni->FileNameLength % sizeof(wchar_t)) != 0 || entrySize > bytes - off) {
+                LOGW("malformed directory notification; reconciling");
+                if (cb_)
+                    cb_(L"", false);
+                break;
+            }
             wstring name(fni->FileName, fni->FileNameLength / sizeof(wchar_t));
             wstring full = dir_ + L"\\" + name;
-            bool added =
-                (fni->Action == FILE_ACTION_ADDED || fni->Action == FILE_ACTION_RENAMED_NEW_NAME);
+            bool added = (fni->Action == FILE_ACTION_ADDED || fni->Action == FILE_ACTION_RENAMED_NEW_NAME);
             if (cb_)
                 cb_(full, added);
             if (fni->NextEntryOffset == 0)
                 break;
+            if (fni->NextEntryOffset > bytes - off) {
+                LOGW("invalid directory notification offset; reconciling");
+                if (cb_)
+                    cb_(L"", false);
+                break;
+            }
             off += fni->NextEntryOffset;
         }
     }

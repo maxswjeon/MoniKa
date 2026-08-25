@@ -29,8 +29,7 @@ inline void logf(const char* level, const char* fmt, ...) {
     std::lock_guard<std::mutex> lk(log_mutex());
     SYSTEMTIME st;
     GetLocalTime(&st);
-    fprintf(stderr, "[%02d:%02d:%02d.%03d %-5s] %s\n", st.wHour, st.wMinute, st.wSecond,
-            st.wMilliseconds, level, buf);
+    fprintf(stderr, "[%02d:%02d:%02d.%03d %-5s] %s\n", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, level, buf);
     fflush(stderr);
     OutputDebugStringA(buf);
     OutputDebugStringA("\n");
@@ -42,17 +41,23 @@ inline void logf(const char* level, const char* fmt, ...) {
 inline wstring utf8_to_wide(const string& s) {
     if (s.empty())
         return L"";
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(), 0, 0);
+    int n = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), (int)s.size(), nullptr, 0);
+    if (n <= 0)
+        return L"";
     wstring w(n, 0);
-    MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(), &w[0], n);
+    if (MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, s.data(), (int)s.size(), w.data(), n) != n)
+        return L"";
     return w;
 }
 inline string wide_to_utf8(const wstring& w) {
     if (w.empty())
         return "";
-    int n = WideCharToMultiByte(CP_UTF8, 0, w.data(), (int)w.size(), 0, 0, 0, 0);
+    int n = WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, w.data(), (int)w.size(), nullptr, 0, nullptr, nullptr);
+    if (n <= 0)
+        return "";
     string s(n, 0);
-    WideCharToMultiByte(CP_UTF8, 0, w.data(), (int)w.size(), &s[0], n, 0, 0);
+    if (WideCharToMultiByte(CP_UTF8, WC_ERR_INVALID_CHARS, w.data(), (int)w.size(), s.data(), n, nullptr, nullptr) != n)
+        return "";
     return s;
 }
 inline wstring to_lower(wstring s) {
@@ -121,9 +126,8 @@ inline int64_t now_unix() {
     return (int64_t)((u.QuadPart - 116444736000000000ULL) / 10000000ULL);
 }
 inline bool read_file_head(const wstring& path, size_t n, vector<uint8_t>& out) {
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ,
-                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0, OPEN_EXISTING,
-                           FILE_FLAG_SEQUENTIAL_SCAN, 0);
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, 0,
+                           OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, 0);
     if (h == INVALID_HANDLE_VALUE)
         return false;
     out.resize(n);

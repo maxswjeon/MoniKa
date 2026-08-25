@@ -12,12 +12,11 @@ Oracle::~Oracle() {
 bool Oracle::init() {
     if (BCryptOpenAlgorithmProvider(&hAlg_, BCRYPT_AES_ALGORITHM, nullptr, 0) != 0)
         return false;
-    if (BCryptSetProperty(hAlg_, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_ECB,
-                          sizeof(BCRYPT_CHAIN_MODE_ECB), 0) != 0)
+    if (BCryptSetProperty(hAlg_, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_ECB, sizeof(BCRYPT_CHAIN_MODE_ECB),
+                          0) != 0)
         return false;
     ULONG got = 0;
-    if (BCryptGetProperty(hAlg_, BCRYPT_OBJECT_LENGTH, (PUCHAR)&keyObjLen_, sizeof(DWORD), &got,
-                          0) != 0)
+    if (BCryptGetProperty(hAlg_, BCRYPT_OBJECT_LENGTH, (PUCHAR)&keyObjLen_, sizeof(DWORD), &got, 0) != 0)
         return false;
     return true;
 }
@@ -25,12 +24,11 @@ bool Oracle::init() {
 bool Oracle::ecb_decrypt(const uint8_t* key32, const uint8_t* in, size_t len, uint8_t* out) {
     vector<uint8_t> keyObj(keyObjLen_);
     BCRYPT_KEY_HANDLE hKey = nullptr;
-    if (BCryptGenerateSymmetricKey(hAlg_, &hKey, keyObj.data(), keyObjLen_, (PUCHAR)key32, 32, 0) !=
-        0)
+    if (BCryptGenerateSymmetricKey(hAlg_, &hKey, keyObj.data(), keyObjLen_, (PUCHAR)key32, 32, 0) != 0)
         return false;
     ULONG res = 0;
-    NTSTATUS s = BCryptDecrypt(hKey, (PUCHAR)in, (ULONG)len, nullptr, nullptr, 0, out, (ULONG)len,
-                               &res, 0); // ECB: no IV, no padding
+    NTSTATUS s = BCryptDecrypt(hKey, (PUCHAR)in, (ULONG)len, nullptr, nullptr, 0, out, (ULONG)len, &res,
+                               0); // ECB: no IV, no padding
     BCryptDestroyKey(hKey);
     return s == 0;
 }
@@ -79,7 +77,8 @@ void Oracle::load_edb_dir(const wstring& userDir) {
             if (name == L"." || name == L"..")
                 continue;
             wstring full = d + L"\\" + name;
-            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+            if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+                !(fd.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)) {
                 stack.push_back(full);
             } else if (iends_with(name, L".edb")) {
                 string rel = wide_to_utf8(full.substr(userDir.size() + 1));
@@ -96,6 +95,16 @@ void Oracle::load_edb_dir(const wstring& userDir) {
         total = files_.size();
     }
     LOGI("oracle: loaded %zu .edb probe files", total);
+}
+
+vector<string> Oracle::relative_paths() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    vector<string> paths;
+    paths.reserve(files_.size());
+    for (const auto& file : files_)
+        paths.push_back(file.rel);
+    std::sort(paths.begin(), paths.end());
+    return paths;
 }
 
 std::optional<DekHit> Oracle::test_key(const uint8_t* key32) {
@@ -118,10 +127,9 @@ std::optional<DekHit> Oracle::test_key(const uint8_t* key32) {
                 continue; // cheapest discriminator
             uint8_t d0 = (uint8_t)(p[0] ^ iv[0]), d1 = (uint8_t)(p[1] ^ iv[1]);
             uint8_t d2 = (uint8_t)(p[2] ^ iv[2]), d3 = (uint8_t)(p[3] ^ iv[3]);
-            uint8_t d5 = (uint8_t)(p[5] ^ iv[5]), d6 = (uint8_t)(p[6] ^ iv[6]),
-                    d7 = (uint8_t)(p[7] ^ iv[7]);
-            if (d0 == 0x10 && d1 == 0x00 && d5 == 0x40 && d6 == 0x20 && d7 == 0x20 &&
-                (d2 == 1 || d2 == 2) && (d3 == 1 || d3 == 2)) {
+            uint8_t d5 = (uint8_t)(p[5] ^ iv[5]), d6 = (uint8_t)(p[6] ^ iv[6]), d7 = (uint8_t)(p[7] ^ iv[7]);
+            if (d0 == 0x10 && d1 == 0x00 && d5 == 0x40 && d6 == 0x20 && d7 == 0x20 && (d2 == 1 || d2 == 2) &&
+                (d3 == 1 || d3 == 2)) {
                 DekHit hit;
                 hit.rel = e.rel;
                 hit.path = e.path;

@@ -9,8 +9,7 @@
 namespace kw {
 
 // Microsoft-Windows-Kernel-Process {22FB2CD6-0E7B-422B-A0C7-2FAD1FD0E716}
-static const GUID KERNEL_PROCESS_GUID = {
-    0x22fb2cd6, 0x0e7b, 0x422b, {0xa0, 0xc7, 0x2f, 0xad, 0x1f, 0xd0, 0xe7, 0x16}};
+static const GUID KERNEL_PROCESS_GUID = {0x22fb2cd6, 0x0e7b, 0x422b, {0xa0, 0xc7, 0x2f, 0xad, 0x1f, 0xd0, 0xe7, 0x16}};
 static const ULONGLONG KW_KEYWORD_PROCESS = 0x10; // WINEVENT_KEYWORD_PROCESS
 static const USHORT EVID_PROCESS_START = 1;
 
@@ -73,14 +72,13 @@ bool EtwProcessMonitor::start(StartFn onStart) {
         return false;
     }
     if (rc != ERROR_SUCCESS) {
-        LOGE("StartTrace failed rc=%lu%s", rc,
-             rc == ERROR_ACCESS_DENIED ? " (run as Administrator)" : "");
+        LOGE("StartTrace failed rc=%lu%s", rc, rc == ERROR_ACCESS_DENIED ? " (run as Administrator)" : "");
         return false;
     }
     session_ = session;
 
-    rc = EnableTraceEx2(session, &KERNEL_PROCESS_GUID, EVENT_CONTROL_CODE_ENABLE_PROVIDER,
-                        TRACE_LEVEL_INFORMATION, KW_KEYWORD_PROCESS, 0, 0, nullptr);
+    rc = EnableTraceEx2(session, &KERNEL_PROCESS_GUID, EVENT_CONTROL_CODE_ENABLE_PROVIDER, TRACE_LEVEL_INFORMATION,
+                        KW_KEYWORD_PROCESS, 0, 0, nullptr);
     if (rc != ERROR_SUCCESS) {
         LOGE("EnableTraceEx2 failed rc=%lu", rc);
         stop();

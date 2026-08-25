@@ -32,8 +32,7 @@ bool Tray::create(HINSTANCE hInst) {
         LOGE("tray class registration failed %lu", GetLastError());
         return false;
     }
-    hwnd_ = CreateWindowExW(0, CLS, L"kakao_watcher", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, hInst,
-                            this);
+    hwnd_ = CreateWindowExW(0, CLS, L"kakao_watcher", 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, hInst, this);
     if (!hwnd_) {
         LOGE("tray window create failed %lu", GetLastError());
         return false;
@@ -85,8 +84,7 @@ LRESULT Tray::wndproc(HWND h, UINT m, WPARAM w, LPARAM l) {
             AppendMenuW(menu, MF_STRING, IDM_RESCAN, L"Rescan now");
             AppendMenuW(menu, MF_STRING, IDM_EXIT, L"Exit");
             SetForegroundWindow(h);
-            UINT cmd =
-                TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, h, nullptr);
+            UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY, pt.x, pt.y, 0, h, nullptr);
             DestroyMenu(menu);
             if (cmd == IDM_RESCAN && onRescan)
                 onRescan();

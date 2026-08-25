@@ -60,8 +60,8 @@ bool load() {
     s_column_text = (column_text_t)GetProcAddress(h, "sqlite3_column_text");
     s_errmsg = (errmsg_t)GetProcAddress(h, "sqlite3_errmsg");
     s_free = (free_t)GetProcAddress(h, "sqlite3_free");
-    loaded = s_open && s_close && s_exec && s_prepare && s_step && s_finalize && s_bind_text &&
-             s_bind_int64 && s_column_int && s_column_text && s_errmsg && s_free;
+    loaded = s_open && s_close && s_exec && s_prepare && s_step && s_finalize && s_bind_text && s_bind_int64 &&
+             s_column_int && s_column_text && s_errmsg && s_free;
     if (loaded)
         module = h;
     else
@@ -119,10 +119,9 @@ bool DekCache::put_dek(const DekHit& hit) {
     int64_t now = now_unix();
     // returns true if this rel was not previously armed
     bool isNew = !has_dek_locked(hit.rel);
-    const char* sql =
-        "INSERT INTO dek(rel,dek_hex,reserved,first_seen,last_armed) VALUES(?,?,?,?,?) "
-        "ON CONFLICT(rel) DO UPDATE SET dek_hex=excluded.dek_hex, reserved=excluded.reserved, "
-        "last_armed=excluded.last_armed;";
+    const char* sql = "INSERT INTO dek(rel,dek_hex,reserved,first_seen,last_armed) VALUES(?,?,?,?,?) "
+                      "ON CONFLICT(rel) DO UPDATE SET dek_hex=excluded.dek_hex, reserved=excluded.reserved, "
+                      "last_armed=excluded.last_armed;";
     sqlite3_stmt* st = nullptr;
     if (sq::s_prepare((sqlite3*)db_, sql, -1, &st, nullptr) != SQLITE_OK) {
         LOGE("sqlite prepare DEK failed: %s", sq::s_errmsg((sqlite3*)db_));
@@ -154,8 +153,7 @@ bool DekCache::has_dek(const string& rel) {
 
 bool DekCache::has_dek_locked(const string& rel) {
     sqlite3_stmt* st = nullptr;
-    if (sq::s_prepare((sqlite3*)db_, "SELECT 1 FROM dek WHERE rel=?;", -1, &st, nullptr) !=
-        SQLITE_OK)
+    if (sq::s_prepare((sqlite3*)db_, "SELECT 1 FROM dek WHERE rel=?;", -1, &st, nullptr) != SQLITE_OK)
         return false;
     sq::s_bind_text(st, 1, rel.c_str(), -1, (void (*)(void*))SQLITE_TRANSIENT);
     bool found = (sq::s_step(st) == SQLITE_ROW);

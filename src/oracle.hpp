@@ -31,6 +31,7 @@ class Oracle {
         std::lock_guard<std::mutex> lk(mu_);
         return files_.size();
     }
+    vector<string> relative_paths() const;
 
     // Test a 32-byte key against ALL loaded files. Returns the match if any.
     std::optional<DekHit> test_key(const uint8_t* key32);
