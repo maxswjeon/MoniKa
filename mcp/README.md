@@ -9,7 +9,14 @@ Raw DEKs never appear in MCP responses. Both services require the `monika:read` 
 
 ## Install
 
-From the repository root:
+Install the released package from PyPI:
+
+```powershell
+uv tool install monika-mcp
+monika-mcp
+```
+
+Run the router instead with `monika-mcp-router`. To work from a source checkout:
 
 ```powershell
 uv sync --all-packages

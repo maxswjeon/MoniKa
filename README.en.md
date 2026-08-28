@@ -18,12 +18,13 @@ This project does not connect to Kakao remote servers, private protocols, or uno
 - Recursively watches `.edb` and `.edb-wal` changes under `chat_data` using `ReadDirectoryChangesW`.
 - Shows the number of captured DEKs in a tray icon and provides manual rescan and exit commands.
 - Writes runtime diagnostics to `%LOCALAPPDATA%\MoniKa\watcher.log`.
+- Provides the separately installable [`monika-mcp`](https://pypi.org/project/monika-mcp/) package for authenticated, read-only access to unlocked rooms and multi-instance routing.
 
 ## Not implemented yet
 
-New-message alerts are not implemented. A filesystem event currently means only that a database or WAL file changed; it does not establish that a new message arrived.
+Native Windows new-message notifications are not implemented. A filesystem event by itself means only that a database or WAL file changed; it does not establish that a new message arrived.
 
-Implementing actual alerts requires decrypting changed database and WAL pages with the captured DEK, diffing new `chatLogHistory` rows against prior state, and generating a Windows notification.
+The MCP sidecar can query decrypted message rows after a supplied timestamp, but it does not run a background notification service. Implementing native alerts still requires tracking row state and generating a Windows notification.
 
 ## Supported environment
 
@@ -119,7 +120,18 @@ tools/verify_dumps.py             parallel NumPy/offline dump verifier
 
 ## MCP access
 
-The optional Python sidecar under [`mcp/`](mcp/) exposes read-only, authenticated MCP tools to list rooms and DEK availability, read bounded decrypted message rows, and check for messages after a timestamp. A second MCP service can probe and route requests across multiple MoniKa instances. See [`mcp/README.md`](mcp/README.md) for installation and security configuration.
+Version `0.1.0` of [`monika-mcp`](https://pypi.org/project/monika-mcp/) is available from PyPI. It exposes authenticated, read-only Streamable HTTP tools to list rooms and DEK availability, read bounded decrypted message rows, and check for messages after a timestamp. The same package includes a router that probes and routes requests across multiple MoniKa instances.
+
+Install the persistent commands with uv:
+
+```powershell
+uv tool install monika-mcp
+monika-mcp
+# Or run the multi-instance service:
+monika-mcp-router
+```
+
+Raw DEKs are never returned through MCP. Both services bind to loopback by default, require scoped bearer authentication, and require TLS for non-loopback deployments. See [`mcp/README.md`](mcp/README.md) for required environment variables and security configuration.
 
 ## Offline dump verification
 

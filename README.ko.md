@@ -18,12 +18,13 @@
 - `ReadDirectoryChangesW`로 `chat_data` 아래의 `.edb` 및 `.edb-wal` 변경을 재귀적으로 감시합니다.
 - 트레이 아이콘에서 포착된 DEK 수를 표시하고 수동 재검색과 종료 메뉴를 제공합니다.
 - `%LOCALAPPDATA%\MoniKa\watcher.log`에 실행 로그를 기록합니다.
+- 잠금 해제된 채팅방의 인증된 읽기 전용 접근과 다중 인스턴스 라우팅을 위한 별도 설치 패키지 [`monika-mcp`](https://pypi.org/project/monika-mcp/)를 제공합니다.
 
 ## 아직 제공하지 않는 기능
 
-새 메시지 알림은 아직 구현되지 않았습니다. 현재의 파일 변경 이벤트는 데이터베이스 또는 WAL 파일이 변경되었다는 사실만 나타내며, 새 메시지가 도착했다는 뜻은 아닙니다.
+Windows 네이티브 새 메시지 알림은 아직 구현되지 않았습니다. 파일 변경 이벤트만으로는 데이터베이스 또는 WAL 파일이 변경되었다는 사실만 알 수 있으며, 새 메시지가 도착했다는 뜻은 아닙니다.
 
-실제 메시지 알림을 구현하려면 포착한 DEK로 변경된 데이터베이스와 WAL 페이지를 복호화하고, `chatLogHistory`의 새 행을 이전 상태와 비교한 뒤 Windows 알림을 생성해야 합니다.
+MCP sidecar는 지정한 시각 이후의 복호화된 메시지 행을 조회할 수 있지만 백그라운드 알림 서비스는 실행하지 않습니다. 네이티브 알림을 구현하려면 행 상태를 추적하고 Windows 알림을 생성해야 합니다.
 
 ## 지원 환경
 
@@ -113,7 +114,24 @@ src/dek_cache.*                   로컬 SQLite DEK/태그 캐시
 src/watcher.*                     chat_data 변경 감시
 src/tray.*                        시스템 트레이 UI
 src/main.cpp                      시작, 승격, 단일 인스턴스, 메시지 루프
+mcp/                              인증된 채팅방 데이터 MCP 서버와 다중 인스턴스 라우터
+tools/verify_dumps.py             병렬 NumPy 기반 오프라인 dump 검증 도구
 ```
+
+## MCP 접근
+
+[`monika-mcp`](https://pypi.org/project/monika-mcp/) `0.1.0`이 PyPI에 공개되어 있습니다. 이 패키지는 채팅방 목록과 DEK 보유 여부 조회, 제한된 범위의 복호화 메시지 읽기, 지정 시각 이후 새 메시지 확인을 위한 인증된 읽기 전용 Streamable HTTP 도구를 제공합니다. 같은 패키지에 여러 MoniKa 인스턴스를 확인하고 요청을 전달하는 라우터도 포함됩니다.
+
+uv로 지속적으로 사용할 명령을 설치합니다.
+
+```powershell
+uv tool install monika-mcp
+monika-mcp
+# 다중 인스턴스 서비스를 실행하려면:
+monika-mcp-router
+```
+
+원시 DEK는 MCP 응답으로 반환되지 않습니다. 두 서비스는 기본적으로 loopback에만 bind하고 scope가 지정된 bearer 인증을 요구하며, loopback 외부 배포에는 TLS가 필요합니다. 필수 환경 변수와 보안 설정은 [`mcp/README.md`](mcp/README.md)를 참조하십시오.
 
 ## 면책
 
