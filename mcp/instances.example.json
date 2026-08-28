@@ -1,0 +1,6 @@
+{
+  "instances": [
+    {"name": "desktop", "url": "https://desktop.example/mcp", "token": "replace-with-instance-token"},
+    {"name": "laptop", "url": "https://laptop.example/mcp", "token": "replace-with-instance-token"}
+  ]
+}

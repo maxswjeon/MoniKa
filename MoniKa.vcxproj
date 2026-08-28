@@ -44,7 +44,7 @@
       <SubSystem>Windows</SubSystem>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <UACUIAccess>false</UACUIAccess>
-      <AdditionalDependencies>advapi32.lib;tdh.lib;bcrypt.lib;shell32.lib;user32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>advapi32.lib;tdh.lib;bcrypt.lib;shell32.lib;user32.lib;gdi32.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

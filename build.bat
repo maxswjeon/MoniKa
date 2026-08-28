@@ -26,7 +26,7 @@ cl /nologo /std:c++17 /EHsc /O2 /W3 /MD /DUNICODE /D_UNICODE ^
    /Fe:x64\Release\MoniKa.exe /Fo:x64\Release\ ^
    /link /SUBSYSTEM:WINDOWS /MANIFEST:EMBED ^
    /MANIFESTUAC:"level='asInvoker' uiAccess='false'" ^
-   advapi32.lib tdh.lib bcrypt.lib shell32.lib user32.lib ole32.lib
+   advapi32.lib tdh.lib bcrypt.lib shell32.lib user32.lib gdi32.lib ole32.lib
 
 if errorlevel 1 ( echo [!] build failed & exit /b 1 )
 echo [+] Built x64\Release\MoniKa.exe

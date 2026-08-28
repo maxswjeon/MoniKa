@@ -553,3 +553,12 @@ FodyWeavers.xsd
 *.dmp
 *.dump
 keystore.bin
+# MCP local secrets and environments
+mcp/.venv/
+mcp/instances.json
+.venv/
+.uv-cache/
+dist/
+
+# Process dumps may contain DEKs, credentials, and private conversation data.
+dumps/

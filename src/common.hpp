@@ -177,6 +177,11 @@ static const int PAGE_SIZE = 4096;
 static const size_t DEK_LEN = 32;
 static const uint8_t ANCHOR_BYTE = 0x88; // codec-record tag right before the DEK
 static const uint8_t ANCHOR_TAG_MAX = 8; // byte[-2] must be < this
+// +1 is the legacy packed layout. The aligned x64 offsets were validated
+// cryptographically against full-memory dumps and real .edb page headers.
+static const size_t DEK_OFFSETS[] = {1, 16, 49, 56};
+static const size_t DEK_OFFSET_COUNT = sizeof(DEK_OFFSETS) / sizeof(DEK_OFFSETS[0]);
+static const size_t DEK_MAX_OFFSET = 56;
 static const int RESERVED_CANDS[] = {80, 48, 64, 16, 32, 96};
 static const int RESERVED_NCAND = 6;
 static const wchar_t* KAKAO_IMAGE = L"kakaotalk.exe";

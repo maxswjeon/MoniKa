@@ -26,8 +26,8 @@ static bool region_interesting(const MEMORY_BASIC_INFORMATION& mbi) {
            p == PAGE_EXECUTE_READWRITE || p == PAGE_EXECUTE_WRITECOPY;
 }
 
-// Walk every private/committed/readable region; for each 0x88-anchored, low-zero
-// 32-byte window call perCand(keyPtr, virtualAddress). Returns bytes scanned.
+// Walk every private/committed/readable region; for each 0x88-anchored,
+// low-zero 32-byte window at a verified codec-record offset, call perCand.
 // The heavy validation (or not) is entirely up to perCand.
 static size_t walk_anchored(HANDLE hp, const std::function<void(const uint8_t*, uintptr_t)>& perCand,
                             size_t* candCount) {
@@ -35,7 +35,7 @@ static size_t walk_anchored(HANDLE hp, const std::function<void(const uint8_t*, 
     const uintptr_t MAXADDR = (uintptr_t)0x7FFFFFFF0000ULL;
     MEMORY_BASIC_INFORMATION mbi;
     vector<uint8_t> buf;
-    const size_t CHUNK = 1024 * 1024, OVERLAP = DEK_LEN + 2;
+    const size_t CHUNK = 1024 * 1024, OVERLAP = DEK_MAX_OFFSET + DEK_LEN + 1;
     size_t scanned = 0, cands = 0;
 
     while (addr < MAXADDR && VirtualQueryEx(hp, (LPCVOID)addr, &mbi, sizeof(mbi)) == sizeof(mbi)) {
@@ -53,22 +53,25 @@ static size_t walk_anchored(HANDLE hp, const std::function<void(const uint8_t*, 
                 if (got >= DEK_LEN + 2) {
                     scanned += got;
                     const uint8_t* d = buf.data();
-                    for (size_t i = 1; i + 1 + DEK_LEN <= got; ++i) {
+                    for (size_t i = 1; i + DEK_MAX_OFFSET + DEK_LEN <= got; ++i) {
                         if (d[i] != ANCHOR_BYTE)
                             continue;
                         if (d[i - 1] >= ANCHOR_TAG_MAX)
                             continue;
-                        uintptr_t keyVa = base + readPos + i + 1;
-                        if (pos && keyVa < base + pos)
-                            continue; // dedupe overlap
-                        const uint8_t* key = &d[i + 1];
-                        int zeros = 0; // cheap entropy gate
-                        for (int k = 0; k < (int)DEK_LEN; ++k)
-                            zeros += (key[k] == 0);
-                        if (zeros > 2)
-                            continue;
-                        ++cands;
-                        perCand(key, keyVa);
+                        for (size_t oi = 0; oi < DEK_OFFSET_COUNT; ++oi) {
+                            size_t keyOffset = DEK_OFFSETS[oi];
+                            uintptr_t keyVa = base + readPos + i + keyOffset;
+                            if (pos && keyVa < base + pos)
+                                continue; // dedupe overlap
+                            const uint8_t* key = &d[i + keyOffset];
+                            int zeros = 0; // cheap entropy gate
+                            for (int k = 0; k < (int)DEK_LEN; ++k)
+                                zeros += (key[k] == 0);
+                            if (zeros > 2)
+                                continue;
+                            ++cands;
+                            perCand(key, keyVa);
+                        }
                     }
                 }
                 SecureZeroMemory(buf.data(), buf.size());

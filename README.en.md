@@ -113,6 +113,23 @@ src/dek_cache.*                   local SQLite DEK/tag cache
 src/watcher.*                     chat_data change watcher
 src/tray.*                        system-tray UI
 src/main.cpp                      startup, elevation, single-instance guard, and message loop
+mcp/                              authenticated room-data MCP server and multi-instance router
+tools/verify_dumps.py             parallel NumPy/offline dump verifier
+```
+
+## MCP access
+
+The optional Python sidecar under [`mcp/`](mcp/) exposes read-only, authenticated MCP tools to list rooms and DEK availability, read bounded decrypted message rows, and check for messages after a timestamp. A second MCP service can probe and route requests across multiple MoniKa instances. See [`mcp/README.md`](mcp/README.md) for installation and security configuration.
+
+## Offline dump verification
+
+`tools/verify_dumps.py` tests full-memory x64 minidumps against the same private/readable-memory, anchor, entropy, AES-header, and reserved-byte rules used by MoniKa. It processes dumps concurrently, deduplicates candidates globally, and uses NumPy for bulk candidate and header comparisons. It never prints keys, database paths, or message content.
+
+```powershell
+uv sync --all-packages
+uv run python tools\verify_dumps.py *_x64.dmp --workers 8 --json
+uv run ruff check .
+uv run pytest
 ```
 
 ## Disclaimer
