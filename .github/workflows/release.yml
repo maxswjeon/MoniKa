@@ -5,13 +5,12 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
   validate:
     name: Validate release
     runs-on: windows-2022
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
@@ -33,6 +32,14 @@ jobs:
           }
           "version=$($tag.Substring(1))" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
+
+          $pyproject = Get-Content -Raw -LiteralPath "mcp/pyproject.toml"
+          if ($pyproject -notmatch '(?m)^version\s*=\s*"([^"]+)"\s*$') {
+            throw "Could not read the monika-mcp version"
+          }
+          if ($Matches[1] -ne $tag.Substring(1)) {
+            throw "Release tag version $($tag.Substring(1)) does not match monika-mcp version $($Matches[1])"
+          }
 
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
@@ -86,10 +93,63 @@ jobs:
             ${{ steps.package.outputs.checksum }}
           if-no-files-found: error
 
+  python-package:
+    name: Build Python distributions
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: false
+          version: "0.12.7"
+
+      - name: Build distributions
+        run: uv build --package monika-mcp --no-sources
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: monika-mcp-dist
+          path: dist/*
+          if-no-files-found: error
+
+  pypi-publish:
+    name: Publish monika-mcp to PyPI
+    needs:
+      - validate
+      - python-package
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/monika-mcp
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: monika-mcp-dist
+          path: dist
+
+      - name: Publish distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+
   github-release:
     name: Publish GitHub release
     needs: validate
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Download artifacts

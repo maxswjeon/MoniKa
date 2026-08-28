@@ -28,4 +28,6 @@ For an instance, set `MONIKA_USER_DIR` and `MONIKA_MCP_ISSUER_URL`; optionally s
 
 For the router, copy `instances.example.json` outside the repository, restrict its filesystem ACL because it contains upstream bearer tokens, set `MONIKA_MCP_INSTANCES` to that path, and run `monika-mcp-router`. Router callers use a separate token configured through `MONIKA_MCP_TOKENS_JSON`.
 
+Maintainers: see [`PUBLISHING.md`](PUBLISHING.md) for the PyPI Trusted Publishing setup and release procedure.
+
 The included opaque-token verifier is suitable for a small private deployment when tokens are generated randomly, scoped, short-lived, and distributed securely. For centrally managed deployments, replace it with JWT signature/audience validation or RFC 7662 introspection against your OAuth 2.1 authorization server. Configure real issuer/resource URLs and terminate TLS at a trusted reverse proxy. Do not expose either default loopback HTTP port directly.

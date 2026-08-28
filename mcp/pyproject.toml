@@ -6,11 +6,18 @@ build-backend = "hatchling.build"
 name = "monika-mcp"
 version = "0.1.0"
 description = "Authenticated MCP access to local MoniKa chat databases and a multi-instance router"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
 dependencies = [
   "mcp>=2.0.0",
   "sqlcipher3>=0.6.2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/maxswjeon/MoniKa"
+Repository = "https://github.com/maxswjeon/MoniKa"
+Issues = "https://github.com/maxswjeon/MoniKa/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
