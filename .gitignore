@@ -541,7 +541,7 @@ FodyWeavers.xsd
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,linux,macos,c,c++,visualstudio
 
-### KakaoTalk DEK Watcher sensitive local data ###
+### MoniKa sensitive local data ###
 # Never commit live KakaoTalk databases, encryption material, watcher caches, logs, or process dumps.
 *.db
 *.db-shm

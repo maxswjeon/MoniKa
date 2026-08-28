@@ -69,7 +69,7 @@ static void stop_non_elevated_copies() {
     entry.dwSize = sizeof(entry);
     if (Process32FirstW(snapshot, &entry)) {
         do {
-            if (entry.th32ProcessID == selfPid || _wcsicmp(entry.szExeFile, L"kakao_watcher.exe") != 0)
+            if (entry.th32ProcessID == selfPid || _wcsicmp(entry.szExeFile, L"MoniKa.exe") != 0)
                 continue;
             HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE, FALSE,
                                          entry.th32ProcessID);
@@ -102,20 +102,19 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     if (elevated)
         stop_non_elevated_copies();
 
-    HANDLE instanceMutex = CreateMutexW(nullptr, TRUE, L"Local\\kakao_watcher_single_instance");
+    HANDLE instanceMutex = CreateMutexW(nullptr, TRUE, L"Local\\MoniKa_single_instance");
     if (!instanceMutex || GetLastError() == ERROR_ALREADY_EXISTS) {
         if (instanceMutex)
             CloseHandle(instanceMutex);
-        MessageBoxW(nullptr, L"kakao_watcher is already running in the notification area.", L"kakao_watcher",
+        MessageBoxW(nullptr, L"MoniKa is already running in the notification area.", L"MoniKa",
                     MB_OK | MB_ICONINFORMATION);
         return 0;
     }
-    LOGI("kakao_watcher starting (%s; self-use: your own account/PC)", elevated ? "administrator" : "non-elevated");
+    LOGI("MoniKa starting (%s; self-use: your own account/PC)", elevated ? "administrator" : "non-elevated");
     if (!g_app.init()) {
         LOGE("init failed");
-        MessageBoxW(nullptr,
-                    L"kakao_watcher could not initialize.\n\nSee %LOCALAPPDATA%\\kakao_watcher\\watcher.log for details.",
-                    L"kakao_watcher", MB_OK | MB_ICONERROR);
+        MessageBoxW(nullptr, L"MoniKa could not initialize.\n\nSee %LOCALAPPDATA%\\MoniKa\\watcher.log for details.",
+                    L"MoniKa", MB_OK | MB_ICONERROR);
         CloseHandle(instanceMutex);
         return 1;
     }
@@ -123,8 +122,8 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     HINSTANCE hInst = GetModuleHandleW(nullptr);
     if (!g_tray.create(hInst)) {
         MessageBoxW(nullptr,
-                    L"kakao_watcher could not create its tray icon.\n\nSee %LOCALAPPDATA%\\kakao_watcher\\watcher.log for details.",
-                    L"kakao_watcher", MB_OK | MB_ICONERROR);
+                    L"MoniKa could not create its tray icon.\n\nSee %LOCALAPPDATA%\\MoniKa\\watcher.log for details.",
+                    L"MoniKa", MB_OK | MB_ICONERROR);
         CloseHandle(instanceMutex);
         return 1;
     }

@@ -1,8 +1,8 @@
-# KakaoTalk DEK Watcher
+# MoniKa
 
 [한국어](README.ko.md) | [English](README.en.md)
 
-`kakao_watcher`는 본인이 소유하고 사용하는 Windows PC와 KakaoTalk 계정의 로컬 데이터베이스 암호화 키(DEK)를 포착하고, `chat_data` 변경을 감시하는 개인용 도구입니다.
+`MoniKa`는 Monitor와 KakaoTalk을 결합한 이름으로, 본인이 소유하고 사용하는 Windows PC와 KakaoTalk 계정의 로컬 데이터베이스 암호화 키(DEK)를 포착하고 `chat_data` 변경을 감시하는 개인용 도구입니다.
 
 이 프로젝트는 카카오 원격 서버, 비공개 프로토콜 또는 비공식 API에 접속하지 않습니다. 공식 KakaoTalk Windows 앱의 로컬 프로세스 메모리와 사용자 프로필 아래의 로컬 파일만 읽으며, 수집한 정보는 사용자 PC 밖으로 전송하지 않습니다.
 
@@ -14,10 +14,10 @@
 - 실시간 `Microsoft-Windows-Kernel-Process` ETW 이벤트로 `KakaoTalk.exe` 시작을 감지합니다.
 - 이미 실행 중인 KakaoTalk 프로세스도 시작 시 검색합니다.
 - KakaoTalk 프로세스 메모리에서 현재 열린 데이터베이스의 SQLCipher DEK 후보를 찾고 BCrypt AES-256 page-1 oracle로 검증합니다.
-- 검증된 DEK를 `%LOCALAPPDATA%\kakao_watcher\cache.db`에 저장합니다.
+- 검증된 DEK를 `%LOCALAPPDATA%\MoniKa\cache.db`에 저장합니다.
 - `ReadDirectoryChangesW`로 `chat_data` 아래의 `.edb` 및 `.edb-wal` 변경을 재귀적으로 감시합니다.
 - 트레이 아이콘에서 포착된 DEK 수를 표시하고 수동 재검색과 종료 메뉴를 제공합니다.
-- `%LOCALAPPDATA%\kakao_watcher\watcher.log`에 실행 로그를 기록합니다.
+- `%LOCALAPPDATA%\MoniKa\watcher.log`에 실행 로그를 기록합니다.
 
 ## 아직 제공하지 않는 기능
 
@@ -45,18 +45,18 @@ build.bat
 또는 MSBuild를 직접 사용할 수 있습니다.
 
 ```bat
-msbuild kakao_watcher.sln /p:Configuration=Release /p:Platform=x64
+msbuild MoniKa.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-결과 파일은 `x64\Release\kakao_watcher.exe`입니다. 외부 패키지 의존성은 없으며 SQLite는 Windows의 `winsqlite3.dll`, AES는 CNG/BCrypt를 사용합니다.
+결과 파일은 `x64\Release\MoniKa.exe`입니다. 외부 패키지 의존성은 없으며 SQLite는 Windows의 `winsqlite3.dll`, AES는 CNG/BCrypt를 사용합니다.
 
 ## 실행
 
-`x64\Release\kakao_watcher.exe`를 더블 클릭합니다. 프로그램은 콘솔 창 없이 시스템 트레이에서 실행됩니다.
+`x64\Release\MoniKa.exe`를 더블 클릭합니다. 프로그램은 콘솔 창 없이 시스템 트레이에서 실행됩니다.
 
 시작 시 관리자 권한 승격을 요청합니다. 승격에 성공하면 같은 경로에서 실행 중인 비관리자 인스턴스를 종료하고 관리자 인스턴스로 교체합니다. UAC를 취소하면 현재 프로세스가 비관리자 모드로 계속 실행됩니다. 이미 관리자 인스턴스가 실행 중이면 새 인스턴스는 중복 실행하지 않습니다.
 
-트레이 아이콘이 보이지 않으면 Windows 알림 영역의 숨겨진 아이콘 메뉴를 확인하십시오. 문제를 진단할 때는 `%LOCALAPPDATA%\kakao_watcher\watcher.log`를 확인하십시오.
+트레이 아이콘이 보이지 않으면 Windows 알림 영역의 숨겨진 아이콘 메뉴를 확인하십시오. 문제를 진단할 때는 `%LOCALAPPDATA%\MoniKa\watcher.log`를 확인하십시오.
 
 ## 기존 PRAGMA 방식이 아닌 이유
 
@@ -64,7 +64,7 @@ msbuild kakao_watcher.sln /p:Configuration=Release /p:Platform=x64
 
 이 방식은 과거 특정 KakaoTalk 버전과 DB 형식을 대상으로 한 것입니다. 현재 이 프로젝트에서 시험한 KakaoTalk 빌드가 생성한 `chatLogs_*.edb`에는 해당 공식으로 만든 key/IV가 맞지 않았고 SQLite header를 복구하지 못했습니다. 공개된 구버전 스크립트를 그대로 실행하거나 프로세스에서 88자 Base64 형태의 pragma 후보를 찾는 것만으로는 현재 DB를 복호화할 수 없습니다. Kakao가 변경된 내부 형식을 공식 문서화하지 않았으므로 정확한 전환 버전이나 모든 배포판에 대한 보편적인 실패를 주장하지는 않습니다.
 
-`kakao_watcher`는 과거 공식을 다시 계산하는 대신, 현재 실행 중인 KakaoTalk이 열린 DB 연결에 실제로 사용하는 32바이트 per-database DEK 후보를 프로세스 메모리에서 포착합니다. 각 후보는 실제 `.edb` page 1을 SQLCipher 형식에 맞게 복호화해 검증하며, 성공한 키만 저장합니다. 따라서 이 프로젝트의 `DEK`와 과거 문헌의 기기 기반 `pragma`는 같은 값이 아닙니다.
+`MoniKa`는 과거 공식을 다시 계산하는 대신, 현재 실행 중인 KakaoTalk이 열린 DB 연결에 실제로 사용하는 32바이트 per-database DEK 후보를 프로세스 메모리에서 포착합니다. 각 후보는 실제 `.edb` page 1을 SQLCipher 형식에 맞게 복호화해 검증하며, 성공한 키만 저장합니다. 따라서 이 프로젝트의 `DEK`와 과거 문헌의 기기 기반 `pragma`는 같은 값이 아닙니다.
 
 관련 자료:
 
@@ -102,7 +102,7 @@ msbuild kakao_watcher.sln /p:Configuration=Release /p:Platform=x64
 ## 파일 구성
 
 ```text
-kakao_watcher.sln / .vcxproj      MSBuild 프로젝트
+MoniKa.sln / MoniKa.vcxproj       MSBuild 프로젝트
 build.bat                         명령행 빌드 스크립트
 src/common.hpp                    공통 유틸리티, 로그, 상수
 src/app.*                         초기화 및 작업 조정

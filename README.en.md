@@ -1,8 +1,8 @@
-# KakaoTalk DEK Watcher
+# MoniKa
 
 [한국어](README.ko.md) | [English](README.en.md)
 
-`kakao_watcher` is a personal Windows utility that captures local database encryption keys (DEKs) and watches `chat_data` changes for a KakaoTalk account and PC that you own and use.
+`MoniKa` (Monitor + KakaoTalk) is a personal Windows utility that captures local database encryption keys (DEKs) and watches `chat_data` changes for a KakaoTalk account and PC that you own and use.
 
 This project does not connect to Kakao remote servers, private protocols, or unofficial APIs. It only reads the local process memory of the official KakaoTalk Windows application and local files under the user's profile, and it does not transmit collected information off the user's PC.
 
@@ -14,10 +14,10 @@ This project does not connect to Kakao remote servers, private protocols, or uno
 - Detects `KakaoTalk.exe` startup through real-time `Microsoft-Windows-Kernel-Process` ETW events.
 - Finds an already-running KakaoTalk process at watcher startup.
 - Searches KakaoTalk process memory for SQLCipher DEK candidates belonging to currently open databases and validates them with a BCrypt AES-256 page-1 oracle.
-- Stores validated DEKs in `%LOCALAPPDATA%\kakao_watcher\cache.db`.
+- Stores validated DEKs in `%LOCALAPPDATA%\MoniKa\cache.db`.
 - Recursively watches `.edb` and `.edb-wal` changes under `chat_data` using `ReadDirectoryChangesW`.
 - Shows the number of captured DEKs in a tray icon and provides manual rescan and exit commands.
-- Writes runtime diagnostics to `%LOCALAPPDATA%\kakao_watcher\watcher.log`.
+- Writes runtime diagnostics to `%LOCALAPPDATA%\MoniKa\watcher.log`.
 
 ## Not implemented yet
 
@@ -45,18 +45,18 @@ build.bat
 You can also invoke MSBuild directly:
 
 ```bat
-msbuild kakao_watcher.sln /p:Configuration=Release /p:Platform=x64
+msbuild MoniKa.sln /p:Configuration=Release /p:Platform=x64
 ```
 
-The output is `x64\Release\kakao_watcher.exe`. There are no third-party package dependencies: SQLite uses the Windows `winsqlite3.dll`, and AES uses CNG/BCrypt.
+The output is `x64\Release\MoniKa.exe`. There are no third-party package dependencies: SQLite uses the Windows `winsqlite3.dll`, and AES uses CNG/BCrypt.
 
 ## Run
 
-Double-click `x64\Release\kakao_watcher.exe`. The application runs in the system tray without a console window.
+Double-click `x64\Release\MoniKa.exe`. The application runs in the system tray without a console window.
 
 At startup, it requests administrator elevation. When elevation succeeds, the elevated instance stops a non-elevated instance running from the same executable path and replaces it. If UAC is cancelled, the current process continues non-elevated. If an elevated instance already exists, the new process exits instead of creating a duplicate.
 
-If the icon is not visible, check the hidden-icons area of the Windows notification tray. For diagnostics, inspect `%LOCALAPPDATA%\kakao_watcher\watcher.log`.
+If the icon is not visible, check the hidden-icons area of the Windows notification tray. For diagnostics, inspect `%LOCALAPPDATA%\MoniKa\watcher.log`.
 
 ## Why this does not use the legacy PRAGMA method
 
@@ -64,7 +64,7 @@ Earlier research on KakaoTalk for Windows described a scheme that generated a `p
 
 That method targeted particular older KakaoTalk versions and database formats. Against the KakaoTalk builds tested by this project, keys and IVs produced by that formula did not recover the SQLite header of current `chatLogs_*.edb` files. Running the published legacy scripts unchanged, or merely searching a process dump for 88-character Base64 pragma candidates, is therefore insufficient for these databases. Kakao has not publicly documented the internal format transition, so this project does not claim an exact cutoff version or universal failure across every distribution.
 
-Instead of recalculating the historical formula, `kakao_watcher` captures candidate 32-byte per-database DEKs that the running KakaoTalk process actually uses for open database connections. It validates each candidate by decrypting a real `.edb` page 1 according to the observed SQLCipher layout and stores only successful keys. The `DEK` used by this project is therefore not the same value as the device-derived `pragma` described by older publications.
+Instead of recalculating the historical formula, `MoniKa` captures candidate 32-byte per-database DEKs that the running KakaoTalk process actually uses for open database connections. It validates each candidate by decrypting a real `.edb` page 1 according to the observed SQLCipher layout and stores only successful keys. The `DEK` used by this project is therefore not the same value as the device-derived `pragma` described by older publications.
 
 References:
 
@@ -102,7 +102,7 @@ KakaoTalk database paths, encryption keys, the cache database, and logs handled 
 ## Repository layout
 
 ```text
-kakao_watcher.sln / .vcxproj      MSBuild project
+MoniKa.sln / MoniKa.vcxproj       MSBuild project
 build.bat                         command-line build script
 src/common.hpp                    shared utilities, logging, and constants
 src/app.*                         initialization and orchestration

@@ -31,7 +31,7 @@ inline wstring log_path() {
         if (!got || got >= n)
             return L"";
         base.resize(got);
-        wstring dir = base + L"\\kakao_watcher";
+        wstring dir = base + L"\\MoniKa";
         if (!CreateDirectoryW(dir.c_str(), nullptr) && GetLastError() != ERROR_ALREADY_EXISTS)
             return L"";
         return dir + L"\\watcher.log";
@@ -48,13 +48,13 @@ inline void logf(const char* level, const char* fmt, ...) {
     SYSTEMTIME st;
     GetLocalTime(&st);
     char line[1320];
-    snprintf(line, sizeof(line), "[%04d-%02d-%02d %02d:%02d:%02d.%03d %-5s] %s\r\n", st.wYear, st.wMonth,
-             st.wDay, st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, level, buf);
+    snprintf(line, sizeof(line), "[%04d-%02d-%02d %02d:%02d:%02d.%03d %-5s] %s\r\n", st.wYear, st.wMonth, st.wDay,
+             st.wHour, st.wMinute, st.wSecond, st.wMilliseconds, level, buf);
     const wstring& path = log_path();
     if (!path.empty()) {
-        HANDLE file = CreateFileW(path.c_str(), FILE_APPEND_DATA,
-                                  FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_ALWAYS,
-                                  FILE_ATTRIBUTE_NORMAL, nullptr);
+        HANDLE file =
+            CreateFileW(path.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                        OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file != INVALID_HANDLE_VALUE) {
             DWORD written = 0;
             WriteFile(file, line, (DWORD)strlen(line), &written, nullptr);

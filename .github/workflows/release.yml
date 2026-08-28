@@ -38,13 +38,13 @@ jobs:
         uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
 
       - name: Build
-        run: msbuild kakao_watcher.sln /m /p:Configuration=Release /p:Platform=x64 /p:TreatWarningAsError=true
+        run: msbuild MoniKa.sln /m /p:Configuration=Release /p:Platform=x64 /p:TreatWarningAsError=true
 
       - name: Verify executable metadata
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $exe = "x64/Release/kakao_watcher.exe"
+          $exe = "x64/Release/MoniKa.exe"
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
           $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           $dumpbin = Get-ChildItem -Path "$vsRoot\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
@@ -52,7 +52,7 @@ jobs:
           if ($headers -notmatch "subsystem \(Windows GUI\)") {
             throw "Executable is not using the Windows GUI subsystem"
           }
-          $manifest = Join-Path $env:RUNNER_TEMP "kakao_watcher.manifest.xml"
+          $manifest = Join-Path $env:RUNNER_TEMP "MoniKa.manifest.xml"
           $mt = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\mt.exe" | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
           & $mt -nologo "-inputresource:$exe;#1" "-out:$manifest"
           if ((Get-Content -Raw -LiteralPath $manifest) -notmatch 'requestedExecutionLevel level="asInvoker"') {
@@ -66,10 +66,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           $ErrorActionPreference = "Stop"
-          $name = "kakao_watcher-$env:VERSION-windows-x64"
+          $name = "MoniKa-$env:VERSION-windows-x64"
           $root = Join-Path "dist" $name
           New-Item -ItemType Directory -Force -Path $root | Out-Null
-          Copy-Item -LiteralPath "x64/Release/kakao_watcher.exe", "README.ko.md", "README.en.md", "DISCLAIMER.md", "LICENSE" -Destination $root
+          Copy-Item -LiteralPath "x64/Release/MoniKa.exe", "README.ko.md", "README.en.md", "DISCLAIMER.md", "LICENSE" -Destination $root
           $archive = Join-Path "dist" "$name.zip"
           Compress-Archive -Path $root -DestinationPath $archive
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
@@ -80,7 +80,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: kakao_watcher-${{ steps.version.outputs.version }}-windows-x64
+          name: MoniKa-${{ steps.version.outputs.version }}-windows-x64
           path: |
             ${{ steps.package.outputs.archive }}
             ${{ steps.package.outputs.checksum }}
@@ -102,4 +102,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ needs.validate.outputs.tag }}" dist/* --repo "${{ github.repository }}" --title "kakao_watcher ${{ needs.validate.outputs.version }}" --generate-notes
+          gh release create "${{ needs.validate.outputs.tag }}" dist/* --repo "${{ github.repository }}" --title "MoniKa ${{ needs.validate.outputs.version }}" --generate-notes

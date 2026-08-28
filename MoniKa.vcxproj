@@ -13,7 +13,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{7C3D9A21-4E2B-4F3A-9C11-2A9B7E4D0C10}</ProjectGuid>
-    <RootNamespace>kakao_watcher</RootNamespace>
+    <RootNamespace>MoniKa</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />

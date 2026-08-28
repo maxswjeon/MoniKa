@@ -1,4 +1,4 @@
-# clang-format config for kakao_watcher (LLVM base, 4-space, 100 cols).
+# clang-format config for MoniKa (LLVM base, 4-space, 100 cols).
 # Run:  clang-format -i src/*.cpp src/*.hpp
 BasedOnStyle: LLVM
 IndentWidth: 4

@@ -24,7 +24,7 @@ class EtwProcessMonitor {
     unsigned long long traceHandle_ = 0; // TRACEHANDLE
     unsigned long long session_ = 0;     // TRACEHANDLE for control
     std::atomic<bool> running_{false};
-    wstring sessionName_ = L"KakaoWatcherKP";
+    wstring sessionName_ = L"MoniKaKP";
     vector<uint8_t> propsBuf_;
 };
 

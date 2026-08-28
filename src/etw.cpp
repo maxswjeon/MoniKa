@@ -54,7 +54,7 @@ void EtwProcessMonitor::handle_record(void* rec) {
 
 bool EtwProcessMonitor::start(StartFn onStart) {
     cb_ = std::move(onStart);
-    sessionName_ = L"KakaoWatcherKP-" + std::to_wstring(GetCurrentProcessId());
+    sessionName_ = L"MoniKaKP-" + std::to_wstring(GetCurrentProcessId());
 
     size_t nameBytes = (sessionName_.size() + 1) * sizeof(wchar_t);
     propsBuf_.assign(sizeof(EVENT_TRACE_PROPERTIES) + nameBytes, 0);

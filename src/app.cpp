@@ -61,7 +61,7 @@ bool App::init() {
     chatDataDir_ = userDir_ + L"\\chat_data";
     LOGI("user dir: %s", wide_to_utf8(userDir_).c_str());
 
-    wstring appdir = env_var(L"LOCALAPPDATA") + L"\\kakao_watcher";
+    wstring appdir = env_var(L"LOCALAPPDATA") + L"\\MoniKa";
     CreateDirectoryW(appdir.c_str(), nullptr);
     cacheDbPath_ = appdir + L"\\cache.db";
 
@@ -206,8 +206,7 @@ void App::refresh_edb_listing_() {
     size_t chatCount = 0;
     LOGI("chatroom .edb listing after login storm (+30s):");
     for (const auto& rel : oracle_.relative_paths()) {
-        if (rel.size() >= chatPrefix.size() &&
-            _strnicmp(rel.c_str(), chatPrefix.c_str(), chatPrefix.size()) == 0 &&
+        if (rel.size() >= chatPrefix.size() && _strnicmp(rel.c_str(), chatPrefix.c_str(), chatPrefix.size()) == 0 &&
             GetFileAttributesW((userDir_ + L"\\" + utf8_to_wide(rel)).c_str()) != INVALID_FILE_ATTRIBUTES) {
             LOGI("  %s", rel.c_str());
             ++chatCount;
