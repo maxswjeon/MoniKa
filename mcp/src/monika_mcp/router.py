@@ -13,6 +13,7 @@ from mcp import Client
 
 from .auth import EnvironmentTokenVerifier
 from .config import Instance, instance_config
+from .network import resolve_bind_host
 
 
 async def call(instance: Instance, tool: str, arguments: dict) -> object:
@@ -70,9 +71,10 @@ def make_router(instances: list[Instance]) -> MCPServer:
 
 def main() -> None:
     router = make_router(instance_config())
+    host = resolve_bind_host(os.environ.get("MONIKA_ROUTER_HOST", "127.0.0.1"))
     router.run(
         transport="streamable-http",
-        host=os.environ.get("MONIKA_ROUTER_HOST", "127.0.0.1"),
+        host=host,
         port=int(os.environ.get("MONIKA_ROUTER_PORT", "8770")),
     )
 
