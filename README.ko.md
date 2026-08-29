@@ -120,7 +120,7 @@ tools/verify_dumps.py             병렬 NumPy 기반 오프라인 dump 검증 �
 
 ## MCP 접근
 
-[`monika-mcp`](https://pypi.org/project/monika-mcp/) `0.1.0`이 PyPI에 공개되어 있습니다. 이 패키지는 채팅방 목록과 DEK 보유 여부 조회, 제한된 범위의 복호화 메시지 읽기, 지정 시각 이후 새 메시지 확인을 위한 인증된 읽기 전용 Streamable HTTP 도구를 제공합니다. 같은 패키지에 여러 MoniKa 인스턴스를 확인하고 요청을 전달하는 라우터도 포함됩니다.
+[`monika-mcp`](https://pypi.org/project/monika-mcp/) `0.1.1`이 PyPI에 공개되어 있습니다. 이 패키지는 채팅방 목록과 DEK 보유 여부 조회, 제한된 범위의 복호화 메시지 읽기, 지정 시각 이후 새 메시지 확인을 위한 인증된 읽기 전용 Streamable HTTP 도구를 제공합니다. 같은 패키지에 여러 MoniKa 인스턴스를 확인하고 요청을 전달하는 라우터도 포함됩니다.
 
 uv로 지속적으로 사용할 명령을 설치합니다.
 
