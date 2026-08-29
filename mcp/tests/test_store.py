@@ -33,6 +33,48 @@ def test_room_id_cannot_escape_user_dir(tmp_path):
         MonikaStore(tmp_path / "cache.db", tmp_path).messages_after("chat_data\\..\\secret.edb", 0)
 
 
+def test_status_discloses_both_account_ids_only_when_signed_in(tmp_path):
+    db = cache(tmp_path / "cache.db")
+    db.execute(
+        "CREATE TABLE session(id INTEGER PRIMARY KEY, state TEXT, profile_id TEXT, "
+        "hashed_talk_user_id TEXT, observed_at INTEGER)"
+    )
+    db.execute(
+        "INSERT INTO session VALUES(1,?,?,?,?)",
+        ("signed_in", "a" * 40, "b" * 32, 123),
+    )
+    db.commit()
+    db.close()
+
+    status = MonikaStore(tmp_path / "cache.db", tmp_path).status()
+    assert status.account == {"profile_id": "a" * 40, "hashed_talk_user_id": "b" * 32}
+    assert status.observed_at == 123
+
+
+def test_status_hides_stale_account_when_signed_out(tmp_path):
+    db = cache(tmp_path / "cache.db")
+    db.execute(
+        "CREATE TABLE session(id INTEGER PRIMARY KEY, state TEXT, profile_id TEXT, "
+        "hashed_talk_user_id TEXT, observed_at INTEGER)"
+    )
+    db.execute("INSERT INTO session VALUES(1,?,?,?,?)", ("signed_out", "a" * 40, "b" * 32, 123))
+    db.commit()
+    db.close()
+
+    status = MonikaStore(tmp_path / "cache.db", tmp_path).status()
+    assert status.session == "signed_out"
+    assert status.account is None
+
+
+def test_status_supports_cache_created_before_session_tracking(tmp_path):
+    db = cache(tmp_path / "cache.db")
+    db.close()
+
+    status = MonikaStore(tmp_path / "cache.db", tmp_path).status()
+    assert status.session == "unknown"
+    assert status.account is None
+
+
 def test_reads_and_checks_encrypted_message_rows(tmp_path):
     from sqlcipher3 import dbapi2 as sqlcipher
 

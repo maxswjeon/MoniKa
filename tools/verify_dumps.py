@@ -33,6 +33,7 @@ MARKERS = (
     b"login_img_line.png",
     b"should_prevent_auto_login_once = no",
 )
+HASHED_TALK_USER_ID = re.compile(rb'drawerUserInfo\{[\s\S]{0,2048}?"hashedTalkUserId"\s*:\s*"([0-9a-fA-F]{32})"')
 CHUNK_SIZE = 32 * 1024 * 1024
 
 
@@ -45,6 +46,7 @@ class DumpCandidates:
     candidates: np.ndarray
     candidate_offsets: np.ndarray
     markers: tuple[bool, bool, bool]
+    hashed_talk_user_id: str | None
 
 
 def memory64_layout(path: str) -> tuple[str, list[tuple[int, int]]]:
@@ -104,6 +106,7 @@ def extract_dump(task: tuple[str, tuple[int, ...]]) -> DumpCandidates:
     marker_flags = [False] * len(MARKERS)
     anchored = 0
     scanned = 0
+    hashed_talk_user_id = None
 
     with open(path, "rb") as stream:
         mapped = mmap.mmap(stream.fileno(), 0, access=mmap.ACCESS_READ)
@@ -120,6 +123,10 @@ def extract_dump(task: tuple[str, tuple[int, ...]]) -> DumpCandidates:
                     for index, marker in enumerate(MARKERS):
                         if not marker_flags[index] and block.find(marker) >= 0:
                             marker_flags[index] = True
+                    if hashed_talk_user_id is None:
+                        identity = HASHED_TALK_USER_ID.search(block)
+                        if identity:
+                            hashed_talk_user_id = identity.group(1).decode("ascii").lower()
 
                     data = np.frombuffer(block, dtype=np.uint8)
                     positions = np.flatnonzero(data == ANCHOR)
@@ -157,7 +164,16 @@ def extract_dump(task: tuple[str, tuple[int, ...]]) -> DumpCandidates:
     else:
         candidates = np.empty((0, DEK_LEN), dtype=np.uint8)
         candidate_offsets = np.empty((0,), dtype=np.uint16)
-    return DumpCandidates(path, architecture, scanned, anchored, candidates, candidate_offsets, tuple(marker_flags))
+    return DumpCandidates(
+        path,
+        architecture,
+        scanned,
+        anchored,
+        candidates,
+        candidate_offsets,
+        tuple(marker_flags),
+        hashed_talk_user_id,
+    )
 
 
 def discover_user_dir(explicit: str | None) -> Path:
@@ -289,6 +305,7 @@ def main() -> int:
                 valid[all_keys[index].tobytes()] = database_indexes
 
     rows = []
+    user_dir = discover_user_dir(args.user_dir)
     for dump in dumps:
         databases: set[int] = set()
         validated_keys = 0
@@ -300,6 +317,14 @@ def main() -> int:
                 databases.update(hits)
                 offset_value = int(key_offset)
                 validated_by_offset[offset_value] = validated_by_offset.get(offset_value, 0) + 1
+        session = classify(dump.markers)
+        if session == "signed_in_candidate" and validated_keys:
+            session = "signed_in"
+        account = None
+        if session == "signed_in":
+            account = {"profile_id": user_dir.name}
+            if dump.hashed_talk_user_id:
+                account["hashed_talk_user_id"] = dump.hashed_talk_user_id
         rows.append(
             {
                 "dump": Path(dump.path).name,
@@ -310,7 +335,8 @@ def main() -> int:
                 "validated_keys": validated_keys,
                 "validated_keys_by_offset": dict(sorted(validated_by_offset.items())),
                 "unlocked_databases": len(databases),
-                "session": classify(dump.markers),
+                "session": session,
+                "account": account,
                 "login_scene": dump.markers[0] and dump.markers[1],
                 "signed_out_marker": dump.markers[2],
             }

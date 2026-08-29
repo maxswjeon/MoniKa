@@ -45,9 +45,8 @@ def make_server(store: MonikaStore) -> MCPServer:
 
     @server.tool()
     def instance_status() -> dict:
-        """Report whether this MoniKa instance currently has any unlocked rooms."""
-        rooms = store.rooms()
-        return {"unlocked": any(r.available for r in rooms), "available_rooms": sum(r.available for r in rooms)}
+        """Report session, disclosed signed-in account identity, and unlocked rooms."""
+        return asdict(store.status())
 
     return server
 

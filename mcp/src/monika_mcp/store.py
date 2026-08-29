@@ -25,6 +25,15 @@ class Room:
     last_change: int | None = None
 
 
+@dataclass(frozen=True)
+class InstanceStatus:
+    session: str
+    unlocked: bool
+    available_rooms: int
+    account: dict[str, str] | None
+    observed_at: int | None
+
+
 class MonikaStore:
     """Read-only view of MoniKa's key cache and KakaoTalk databases.
 
@@ -51,6 +60,29 @@ class MonikaStore:
             disk = {str(p.relative_to(self.user_dir)).replace("/", "\\") for p in root.rglob("*.edb")}
         ids = sorted(disk | {p for p in keys | tags.keys() if p.lower().startswith(CHAT_PREFIX)})
         return [Room(p, p in keys and p in disk, tags.get(p)) for p in ids]
+
+    def status(self) -> InstanceStatus:
+        rooms = self.rooms()
+        available_rooms = sum(room.available for room in rooms)
+        state = "unknown"
+        profile_id = ""
+        hashed_talk_user_id = ""
+        observed_at = None
+        with closing(self._cache()) as db:
+            table = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='session'").fetchone()
+            row = (
+                db.execute("SELECT state,profile_id,hashed_talk_user_id,observed_at FROM session WHERE id=1").fetchone()
+                if table
+                else None
+            )
+        if row:
+            state, profile_id, hashed_talk_user_id, observed_at = row
+        account = None
+        if state == "signed_in":
+            account = {"profile_id": str(profile_id)}
+            if hashed_talk_user_id:
+                account["hashed_talk_user_id"] = str(hashed_talk_user_id)
+        return InstanceStatus(str(state), bool(available_rooms), available_rooms, account, observed_at)
 
     def _key_and_path(self, room_id: str) -> tuple[str, Path]:
         # PureWindowsPath also rejects POSIX tricks consistently on Windows.

@@ -2,10 +2,12 @@
 
 This directory provides two authenticated Streamable HTTP MCP services:
 
-- `monika-mcp`: lists chatroom databases, reports DEK availability, reads bounded decrypted message rows, and checks for messages after a Unix timestamp.
+- `monika-mcp`: lists chatroom databases, reports session/account and DEK availability, reads bounded decrypted message rows, and checks for messages after a Unix timestamp.
 - `monika-mcp-router`: concurrently probes several instances and routes an allow-listed read tool to a named instance.
 
 Raw DEKs never appear in MCP responses. Both services require the `monika:read` bearer-token scope. They bind to loopback by default; use a TLS reverse proxy for remote access. Plain HTTP instance URLs are rejected except on loopback.
+
+`instance_status` discloses the 40-hex Kakao profile-directory identifier as `profile_id` and the distinct 32-hex `hashed_talk_user_id` when the process scan confirms a signed-in session. Cached identity survives logout, so `account` is deliberately `null` for signed-out, interstitial, candidate, and unknown states. The response includes `observed_at` so callers can judge freshness.
 
 ## Install
 

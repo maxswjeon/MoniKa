@@ -108,7 +108,10 @@ bool DekCache::init(const wstring& dbPath) {
                    " first_seen INTEGER, last_armed INTEGER);"
                    "CREATE TABLE IF NOT EXISTS tag("
                    " rel TEXT PRIMARY KEY, last_change INTEGER, change_count INTEGER DEFAULT 0,"
-                   " state TEXT);");
+                   " state TEXT);"
+                   "CREATE TABLE IF NOT EXISTS session("
+                   " id INTEGER PRIMARY KEY CHECK(id=1), state TEXT NOT NULL, profile_id TEXT NOT NULL,"
+                   " hashed_talk_user_id TEXT, observed_at INTEGER NOT NULL);");
     LOGI("cache: %s", u8.c_str());
     return ok;
 }
@@ -194,6 +197,30 @@ void DekCache::touch_tag(const string& rel, const char* state) {
     sq::s_finalize(st);
     if (rc != SQLITE_DONE)
         LOGE("sqlite tag update failed rc=%d: %s", rc, sq::s_errmsg((sqlite3*)db_));
+}
+
+void DekCache::put_session(const string& state, const string& profileId, const string& hashedTalkUserId) {
+    std::lock_guard<std::mutex> lk(mu_);
+    const char* sql = "INSERT INTO session(id,state,profile_id,hashed_talk_user_id,observed_at) VALUES(1,?,?,?,?) "
+                      "ON CONFLICT(id) DO UPDATE SET state=excluded.state, profile_id=excluded.profile_id, "
+                      "hashed_talk_user_id=excluded.hashed_talk_user_id, observed_at=excluded.observed_at;";
+    sqlite3_stmt* st = nullptr;
+    if (sq::s_prepare((sqlite3*)db_, sql, -1, &st, nullptr) != SQLITE_OK) {
+        LOGE("sqlite prepare session failed: %s", sq::s_errmsg((sqlite3*)db_));
+        return;
+    }
+    int rc = sq::s_bind_text(st, 1, state.c_str(), -1, (void (*)(void*))SQLITE_TRANSIENT);
+    if (rc == SQLITE_OK)
+        rc = sq::s_bind_text(st, 2, profileId.c_str(), -1, (void (*)(void*))SQLITE_TRANSIENT);
+    if (rc == SQLITE_OK)
+        rc = sq::s_bind_text(st, 3, hashedTalkUserId.c_str(), -1, (void (*)(void*))SQLITE_TRANSIENT);
+    if (rc == SQLITE_OK)
+        rc = sq::s_bind_int64(st, 4, now_unix());
+    if (rc == SQLITE_OK)
+        rc = sq::s_step(st);
+    sq::s_finalize(st);
+    if (rc != SQLITE_DONE)
+        LOGE("sqlite session update failed rc=%d: %s", rc, sq::s_errmsg((sqlite3*)db_));
 }
 
 } // namespace kw

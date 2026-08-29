@@ -7,6 +7,11 @@
 
 namespace kw {
 
+static string profile_id_from_dir(const wstring& userDir) {
+    size_t slash = userDir.find_last_of(L"\\/");
+    return wide_to_utf8(userDir.substr(slash == wstring::npos ? 0 : slash + 1));
+}
+
 // Find %LOCALAPPDATA%\Kakao\KakaoTalk\users\<40hex> that contains keystore.bin
 static wstring discover_user_dir() {
     wstring base = env_var(L"LOCALAPPDATA");
@@ -72,6 +77,8 @@ bool App::init() {
     oracle_.load_edb_dir(userDir_);
     if (!cache_.init(cacheDbPath_))
         return false;
+    if (!find_kakaotalk_pid())
+        cache_.put_session("not_running", profile_id_from_dir(userDir_), "");
     refresh_armed_();
     scanThread_ = std::thread([this] { scan_worker_(); });
     return true;
@@ -141,6 +148,7 @@ void App::start_storm(DWORD pid) {
     for (int ms : validateMs)
         enqueue_(pid, ms, JobMode::Validate, /*coalesce=*/false);
     enqueue_(pid, 30000, JobMode::RefreshEdbList, /*coalesce=*/true);
+    enqueue_(pid, 36000, JobMode::Normal, /*coalesce=*/true);
 }
 
 // A single cheap collect+validate, coalesced so a burst of file events (e.g. the
@@ -226,13 +234,17 @@ void App::scan_pid(DWORD pid) {
     std::lock_guard<std::mutex> lk(scanMu_);
     LOGI("scanning KakaoTalk pid=%lu ...", pid);
     int newly = 0;
-    Scanner::scan_process(pid, oracle_, [&](const DekHit& hit, uintptr_t va) {
+    int resident = Scanner::scan_process(pid, oracle_, [&](const DekHit& hit, uintptr_t va) {
         bool isNew = cache_.put_dek(hit);
         if (isNew) {
             ++newly;
             LOGI("  armed DEK: %s (reserved=%d) @0x%llx", hit.rel.c_str(), hit.reserved, (unsigned long long)va);
         }
     });
+    SessionInfo session = Scanner::inspect_session(pid);
+    if (session.state == "signed_in_candidate" && resident > 0)
+        session.state = "signed_in";
+    cache_.put_session(session.state, profile_id_from_dir(userDir_), session.hashedTalkUserId);
     LOGI("scan done: %d newly-armed", newly);
     refresh_armed_();
 }
@@ -309,8 +321,10 @@ void App::rescan_running() {
     DWORD pid = find_kakaotalk_pid();
     if (pid)
         request_scan(pid);
-    else
+    else {
+        cache_.put_session("not_running", profile_id_from_dir(userDir_), "");
         LOGI("KakaoTalk not running; nothing to scan");
+    }
 }
 
 void App::on_file_event(const wstring& fullPath, bool added) {

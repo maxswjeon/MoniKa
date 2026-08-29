@@ -19,6 +19,9 @@ class DekCache {
     // File-change tags for the chat_data watcher.
     void touch_tag(const string& rel, const char* state);
 
+    // Latest process-observed session state and non-secret account identifiers.
+    void put_session(const string& state, const string& profileId, const string& hashedTalkUserId);
+
   private:
     bool exec(const char* sql);
     bool has_dek_locked(const string& rel);
