@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 
 import httpx2
@@ -19,14 +20,17 @@ from .network import resolve_bind_host
 async def call(instance: Instance, tool: str, arguments: dict) -> object:
     headers = {"Authorization": f"Bearer {instance.token}"}
     async with httpx2.AsyncClient(headers=headers, follow_redirects=True) as http:
-        async with streamable_http_client(instance.url, http_client=http) as transport:
-            async with Client(transport) as client:
-                result = await client.call_tool(tool, arguments)
-                return (
-                    result.structured_content
-                    if result.structured_content is not None
-                    else [c.model_dump() for c in result.content]
-                )
+        transport = streamable_http_client(instance.url, http_client=http)
+        async with Client(transport) as client:
+            result = await client.call_tool(tool, arguments)
+            if result.structured_content is not None:
+                return result.structured_content
+            if len(result.content) == 1 and result.content[0].type == "text":
+                try:
+                    return json.loads(result.content[0].text)
+                except json.JSONDecodeError:
+                    pass
+            return [content.model_dump() for content in result.content]
 
 
 def make_router(instances: list[Instance]) -> MCPServer:
